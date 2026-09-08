@@ -1,0 +1,4 @@
+import { readFile, writeFile } from 'node:fs/promises';
+const spec = await readFile(new URL('../openapi.yaml', import.meta.url), 'utf8');
+await writeFile(new URL('../generated/client.ts', import.meta.url), `// Generated from openapi.yaml. Do not edit.\nexport const CONTRACT_VERSION = '1.0.0';\nexport type ApiError = { error: { code: string; message: string; fieldErrors?: Record<string, string[]>; requestId: string } };\nexport type ApiClientOptions = { baseUrl: string; fetchImpl?: typeof fetch };\nexport function createApiClient(options: ApiClientOptions) { const f = options.fetchImpl ?? fetch; return { async get<T>(path: string): Promise<T> { const r = await f(options.baseUrl + path, { credentials: 'include' }); if (!r.ok) throw await r.json(); return r.json() as Promise<T>; } }; }\n// Source contract bytes: ${spec.length}\n`);
+console.log('Generated packages/contracts/generated/client.ts');

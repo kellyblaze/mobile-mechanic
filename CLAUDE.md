@@ -1,0 +1,1 @@
+Read `AGENTS.md` and the shared sources it names. Claude owns frontend presentation and integration only; do not modify database schema, server business rules, authentication, authorization, OpenAPI, generated client files, or migrations. Request contract changes through `docs/change-requests/`.
