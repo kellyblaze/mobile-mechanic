@@ -2,7 +2,7 @@
 
 Repository: `E:\Projects\Mobile Mechanic`  
 Branch: see `git branch --show-current`  
-Commit SHA: populated after the checkpoint commit  
+Commit SHA: `112f989b33d01fa9c7abf531ccdc369b8484ba40`  
 Contract: `1.0.0`, `packages/contracts/openapi.yaml`
 
 ## Claude ownership
