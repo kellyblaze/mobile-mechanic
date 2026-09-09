@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Route, Routes, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ApiRequestError, createApiAdapter, type ApiAdapter, type DevActor } from './lib/apiAdapter.js';
@@ -19,6 +19,33 @@ function useMediaQuery(query: string): boolean {
 
 function usePrefersReducedMotion(): boolean {
   return useMediaQuery('(prefers-reduced-motion: reduce)');
+}
+
+// Fires once, the first time the element scrolls into view, then disconnects — an entrance
+// reveal, not a repeating/ambient one. Reduced-motion visitors still get this (IntersectionObserver
+// isn't gated by that preference); the site's global prefers-reduced-motion rule (transition:
+// none !important on *) just makes the state change instant instead of animated once it fires.
+function useInViewOnce<T extends HTMLElement>(threshold = 0.3) {
+  const ref = useRef<T>(null);
+  const [isInView, setIsInView] = useState(false);
+
+  useEffect(() => {
+    const node = ref.current;
+    if (!node || isInView) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsInView(true);
+          observer.disconnect();
+        }
+      },
+      { threshold }
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [isInView, threshold]);
+
+  return { ref, isInView };
 }
 
 // One color per sentence via --hero-line-1..4 (styles.css), keyed by array index below.
@@ -134,6 +161,7 @@ function Home({ api }: { api: ApiAdapter }) {
   const catalog = useQuery({ queryKey: ['service-catalog'], queryFn: () => api.listServiceCatalog() });
   const prefersReducedMotion = usePrefersReducedMotion();
   const isMobileViewport = useMediaQuery(MOBILE_VIDEO_QUERY);
+  const { ref: promiseRef, isInView: promiseInView } = useInViewOnce<HTMLHeadingElement>();
 
   const entryDoors = [
     {
@@ -184,9 +212,17 @@ function Home({ api }: { api: ApiAdapter }) {
       {/* Relocated off the video per feedback: the four-sentence promise reads more reliably on
           a plain dark card than fighting a moving background, even a well-scrimmed one. */}
       <section className="promise-card" aria-labelledby="promise-heading">
-        <h2 id="promise-heading" className="promise-headline">
+        <h2
+          id="promise-heading"
+          ref={promiseRef}
+          className={`promise-headline${promiseInView ? ' is-in-view' : ''}`}
+        >
           {HERO_LINES.map((line, index) => (
-            <span key={line} className="promise-line" style={{ color: `var(--hero-line-${index + 1})` }}>
+            <span
+              key={line}
+              className="promise-line"
+              style={{ color: `var(--hero-line-${index + 1})`, transitionDelay: `${index * 0.15}s` }}
+            >
               {line}
             </span>
           ))}

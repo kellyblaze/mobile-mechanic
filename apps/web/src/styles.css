@@ -295,8 +295,26 @@ main {
   line-height: 1.2;
 }
 
+/* "Impact stamp" entrance: each line starts oversized and invisible, then punches down to full
+   size as it fades in — like a title card hitting the screen rather than a gentle fade. Staggered
+   per line via the transitionDelay set inline in App.tsx (index * 0.15s), so the four lines land
+   in sequence (matching their wrong -> plan -> price -> repair order) instead of all four
+   snapping in at once. Plays once, the first time the card scrolls into view (useInViewOnce
+   toggles .is-in-view on the parent .promise-headline) — this is the first real explanation of
+   what the site does, so it's an entrance moment, not a looping/ambient effect. cubic-bezier here
+   overshoots slightly past 1 before settling, which is what gives the "snap"/impact feel instead
+   of a plain ease-out. Reduced-motion visitors still get the reveal — the site's global
+   prefers-reduced-motion rule just makes it instant instead of animated. */
 .promise-line {
   display: block;
+  opacity: 0;
+  transform: scale(1.4);
+  transition: opacity 0.4s ease-out, transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.promise-headline.is-in-view .promise-line {
+  opacity: 1;
+  transform: scale(1);
 }
 
 .promise-card p {
