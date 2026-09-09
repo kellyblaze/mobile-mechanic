@@ -3,20 +3,22 @@ import { Link, Route, Routes, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ApiRequestError, createApiAdapter, type ApiAdapter, type DevActor } from './lib/apiAdapter.js';
 
-function usePrefersReducedMotion(): boolean {
-  const query = '(prefers-reduced-motion: reduce)';
-  const [prefersReducedMotion, setPrefersReducedMotion] = useState(
-    () => typeof window !== 'undefined' && window.matchMedia(query).matches
-  );
+function useMediaQuery(query: string): boolean {
+  const [matches, setMatches] = useState(() => typeof window !== 'undefined' && window.matchMedia(query).matches);
 
   useEffect(() => {
     const mediaQueryList = window.matchMedia(query);
-    const onChange = () => setPrefersReducedMotion(mediaQueryList.matches);
+    const onChange = () => setMatches(mediaQueryList.matches);
+    onChange();
     mediaQueryList.addEventListener('change', onChange);
     return () => mediaQueryList.removeEventListener('change', onChange);
-  }, []);
+  }, [query]);
 
-  return prefersReducedMotion;
+  return matches;
+}
+
+function usePrefersReducedMotion(): boolean {
+  return useMediaQuery('(prefers-reduced-motion: reduce)');
 }
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? 'http://127.0.0.1:3000/api/v1';
@@ -71,9 +73,12 @@ function DevSessionBar({ actorKey, onChange }: { actorKey: ActorKey; onChange: (
   );
 }
 
+const MOBILE_VIDEO_QUERY = '(max-width: 640px)';
+
 function Home({ api }: { api: ApiAdapter }) {
   const catalog = useQuery({ queryKey: ['service-catalog'], queryFn: () => api.listServiceCatalog() });
   const prefersReducedMotion = usePrefersReducedMotion();
+  const isMobileViewport = useMediaQuery(MOBILE_VIDEO_QUERY);
 
   const entryDoors = [
     { label: "Something's wrong", description: 'Tell us the symptom and get routed to a diagnostic or repair.' },
@@ -83,23 +88,28 @@ function Home({ api }: { api: ApiAdapter }) {
 
   return (
     <section className="home">
-      {/* Video: user-provided (apps/web/public/hero.mp4, ~24MB/1916x1080/10s), replacing the
-          earlier Pexels photo hero. poster is a real extracted first-frame (ffmpeg), not the old
-          photo, so there's no flash-of-different-image before playback starts. autoPlay is only
-          set when the visitor hasn't requested reduced motion — without autoPlay a <video>
-          simply displays its poster as a static image, so reduced-motion users still see the
-          scene, just not moving. */}
+      {/* Video: user-provided (apps/web/public/hero.mp4, 1916x1080/10s). hero-mobile.mp4 is a
+          960px-wide mobile spec variant (ffmpeg: scale=960:-2, libx264 CRF 18 "preset slow" for
+          visual quality parity with the source, audio stream copied byte-for-byte — untouched
+          quality/volume, not re-encoded) — 24MB down to ~3MB. <source media> picks the right file
+          per viewport the same way <picture> does for images; posters are real extracted first
+          frames per variant, so there's no flash-of-different-image before playback starts.
+          autoPlay is only set when the visitor hasn't requested reduced motion — without autoPlay
+          a <video> simply displays its poster as a static image, so reduced-motion users still
+          see the scene, just not moving. */}
       <div className="hero">
         <video
           className="hero-video"
-          src="/hero.mp4"
-          poster="/hero-poster.jpg"
+          poster={isMobileViewport ? '/hero-poster-mobile.jpg' : '/hero-poster.jpg'}
           autoPlay={!prefersReducedMotion}
           loop
           muted
           playsInline
           aria-hidden="true"
-        />
+        >
+          <source src="/hero-mobile.mp4" media={MOBILE_VIDEO_QUERY} type="video/mp4" />
+          <source src="/hero.mp4" type="video/mp4" />
+        </video>
         <div className="hero-content">
           <h1>
             Tell us what&rsquo;s <span className="accent">wrong</span>. See the plan. Approve the price. Follow the
