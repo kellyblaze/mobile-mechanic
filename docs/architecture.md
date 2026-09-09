@@ -12,7 +12,11 @@ Production authentication is designed for managed provider sessions in secure, H
 
 ## Data and concurrency
 
-PostgreSQL 18 is the target. New identifiers use native `uuidv7()`, timestamps are `timestamptz`, money is integer minor units plus ISO currency, and accepted quote records are immutable by version. Booking and hold constraints will use a transaction plus exclusion constraint in the next backend phase; the current API does not pretend booking is implemented. Idempotency records are provisioned in the schema and acceptance requires an idempotency key, while the in-memory adapter is not durable.
+PostgreSQL 18 is the target. New identifiers use native `uuidv7()`, timestamps are `timestamptz`, money is integer minor units plus ISO currency, and accepted quote records are immutable by version. Migration `002_booking_payments_and_media.sql` adds private upload references, booking holds, appointment overlap exclusion, payment attempts, and webhook deduplication. Vehicle and service-request writes use PostgreSQL repositories when configured. The remaining message/quote/job adapters are still fixture-backed until their repositories are completed.
+
+## Authentication and providers
+
+Authentication is provider-neutral. `AUTH_MODE=development` uses the explicitly unsafe local actor headers. `AUTH_MODE=managed` currently fails closed because no approved OIDC/JWT provider, issuer, audience, or JWKS configuration has been supplied. No vendor or credentials were invented.
 
 ## Implemented at checkpoint
 

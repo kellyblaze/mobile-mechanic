@@ -2,9 +2,9 @@
 
 | Feature | Backend | Frontend | Real integration | Evidence / blocker |
 |---|---|---|---|---|
-| Health/session | implemented (development auth adapter) | dev-role switcher wired, labeled "not a real login" | integrated (dev headers only) | no managed auth credentials; sign-in/recovery UI not built |
+| Health/session | development adapter; managed provider boundary added | dev-role switcher wired, labeled "not a real login" | integrated (dev headers only) | managed OIDC/JWT issuer, audience, JWKS, and UI flow still required |
 | Service catalog | implemented via in-memory adapter | implemented (Home) | integrated | verified via browser against real API; business catalog/prices not configured |
-| Vehicle create/list | implemented | implemented (My Garage: list + create form) | integrated | verified via browser: real GET + POST, 422 field-error display confirmed by contract |
+| Vehicle create/list | PostgreSQL repository when configured; fixture fallback only without DB/mock | implemented (My Garage: list + create form) | development DB path wired | local PostgreSQL unavailable for execution in this environment |
 | Service request submission | implemented | integrated (Tap Your Trouble submit) | integrated against development adapter | durable repository and production routing pending |
 | Upload initiation metadata | implemented via safe local adapter | not wired | mocked/pending | private signed object storage pending |
 | Quote acceptance | implemented with version conflict checks | implemented (Repair Room: approve button) | integrated | verified via browser: real POST with Idempotency-Key header, and a real 409 STALE_VERSION correctly rendered on re-click |

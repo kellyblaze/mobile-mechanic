@@ -13,7 +13,8 @@ Status: **blocked for release review**. This branch completes available developm
 ## Release blockers
 
 - Development headers are still used; managed authentication and production session handling are absent.
-- API state remains in memory; PostgreSQL repositories, RLS, durable idempotency, and transactional booking constraints are pending.
+- Vehicle and service-request repositories now use PostgreSQL when configured, but most API resources remain in-memory; RLS, durable idempotency enforcement, and production booking/payment services are pending.
+- Managed authentication is not enabled: `AUTH_MODE=managed` fails closed until an approved OIDC/JWT provider configuration is supplied.
 - Availability, booking holds, appointments, transitions, change orders, invoices, payment webhooks/reconciliation, admin/mechanic operations, and notification workers are not production-complete.
 - Uploads use a safe local metadata adapter; private object storage and signed retrieval are pending.
 - No automated browser/E2E or provider test-mode suite exists.
