@@ -1,7 +1,23 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, Route, Routes, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ApiRequestError, createApiAdapter, type ApiAdapter, type DevActor } from './lib/apiAdapter.js';
+
+function usePrefersReducedMotion(): boolean {
+  const query = '(prefers-reduced-motion: reduce)';
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia(query).matches
+  );
+
+  useEffect(() => {
+    const mediaQueryList = window.matchMedia(query);
+    const onChange = () => setPrefersReducedMotion(mediaQueryList.matches);
+    mediaQueryList.addEventListener('change', onChange);
+    return () => mediaQueryList.removeEventListener('change', onChange);
+  }, []);
+
+  return prefersReducedMotion;
+}
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? 'http://127.0.0.1:3000/api/v1';
 
@@ -57,6 +73,7 @@ function DevSessionBar({ actorKey, onChange }: { actorKey: ActorKey; onChange: (
 
 function Home({ api }: { api: ApiAdapter }) {
   const catalog = useQuery({ queryKey: ['service-catalog'], queryFn: () => api.listServiceCatalog() });
+  const prefersReducedMotion = usePrefersReducedMotion();
 
   const entryDoors = [
     { label: "Something's wrong", description: 'Tell us the symptom and get routed to a diagnostic or repair.' },
@@ -66,18 +83,23 @@ function Home({ api }: { api: ApiAdapter }) {
 
   return (
     <section className="home">
-      {/* Photo: Pexels, free to use under the Pexels License, no attribution required.
-          "Young mechanic polishing a red car in workshop" —
-          https://www.pexels.com/photo/young-mechanic-polishing-a-red-car-in-workshop-37809560/
-          Chosen because it ties the accent-red palette directly to real photography, matching
-          the reference's full-bleed dark garage/vehicle hero. */}
-      <div
-        className="hero"
-        style={{
-          backgroundImage:
-            "url('https://images.pexels.com/photos/37809560/pexels-photo-37809560/free-photo-of-young-mechanic-polishing-a-red-car-in-workshop.jpeg?cs=tinysrgb&dpr=1&w=1600')"
-        }}
-      >
+      {/* Video: user-provided (apps/web/public/hero.mp4, ~24MB/1916x1080/10s), replacing the
+          earlier Pexels photo hero. poster is a real extracted first-frame (ffmpeg), not the old
+          photo, so there's no flash-of-different-image before playback starts. autoPlay is only
+          set when the visitor hasn't requested reduced motion — without autoPlay a <video>
+          simply displays its poster as a static image, so reduced-motion users still see the
+          scene, just not moving. */}
+      <div className="hero">
+        <video
+          className="hero-video"
+          src="/hero.mp4"
+          poster="/hero-poster.jpg"
+          autoPlay={!prefersReducedMotion}
+          loop
+          muted
+          playsInline
+          aria-hidden="true"
+        />
         <div className="hero-content">
           <h1>
             Tell us what&rsquo;s <span className="accent">wrong</span>. See the plan. Approve the price. Follow the

@@ -183,12 +183,19 @@ main {
   margin: 0 calc(var(--space-3) * -1) var(--space-5);
   padding: var(--space-6) var(--space-4);
   border-radius: 0 0 var(--radius-lg) var(--radius-lg);
-  background-size: cover;
-  background-position: center;
   overflow: hidden;
   min-height: 380px;
   display: flex;
   align-items: flex-end;
+  background: var(--color-bg); /* shows while the video loads */
+}
+
+.hero-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .hero::before {
@@ -406,3 +413,8 @@ button:disabled {
     animation: none !important;
   }
 }
+
+/* Reduced motion is enforced in App.tsx (autoPlay is only set when the user has not requested
+   reduced motion). A <video> with no autoplay simply renders its poster frame as a static
+   image, so the element stays visible and mounted — it just never plays — rather than being
+   hidden here, which would otherwise remove the poster image along with it. */
