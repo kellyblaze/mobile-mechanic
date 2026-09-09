@@ -203,8 +203,14 @@ function Home({ api }: { api: ApiAdapter }) {
         </video>
         <div className="hero-content">
           <h1 className="hero-brand">
-            <span className="hero-brand-line">Travel</span>
-            <span className="hero-brand-line hero-brand-accent">Automotive</span>
+            {/* Real logo (apps/web/public/logo.png, from the user), replacing the earlier
+                text-based "Travel" / "Automotive" wordmark. WebP primary (74.5KB vs. the
+                source PNG's 727KB — ffmpeg, same transparency, visually identical) with the
+                original PNG as a <picture> fallback for browsers without WebP support. */}
+            <picture>
+              <source srcSet="/logo.webp" type="image/webp" />
+              <img src="/logo.png" alt="Travel Automotive — Mobile Mechanic" className="hero-logo" />
+            </picture>
           </h1>
         </div>
       </div>

@@ -253,25 +253,17 @@ main {
   text-align: center;
 }
 
-/* Hero now carries only the business wordmark (moved off the four-sentence promise, which lives
-   in .promise-card below instead) — a two-line stacked treatment echoing the flyer's own
-   "TRAVEL" (white) / "AUTOMOTIVE" (accent) two-tone logo lockup. */
+/* Hero carries only the wordmark (moved off the four-sentence promise, which lives in
+   .promise-card below instead) — now the business's actual logo image rather than a
+   text-rendered "Travel" / "Automotive" stand-in. */
 .hero-brand {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.02em;
-  font-size: clamp(2.5rem, 9vw, 6rem);
-  line-height: 0.95;
+  justify-content: center;
 }
 
-.hero-brand-line {
-  display: block;
-  color: var(--color-text);
-}
-
-.hero-brand-accent {
-  color: var(--color-accent-text);
+.hero-logo {
+  width: min(90%, 480px);
+  height: auto;
 }
 
 /* The relocated four-sentence promise: same one-color-per-sentence idea as before, just sitting
