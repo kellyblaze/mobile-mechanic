@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, Route, Routes, useParams } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Link, NavLink, Route, Routes, useLocation, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ApiRequestError, createApiAdapter, type ApiAdapter, type DevActor } from './lib/apiAdapter.js';
 
@@ -25,25 +25,35 @@ function usePrefersReducedMotion(): boolean {
 // reveal, not a repeating/ambient one. Reduced-motion visitors still get this (IntersectionObserver
 // isn't gated by that preference); the site's global prefers-reduced-motion rule (transition:
 // none !important on *) just makes the state change instant instead of animated once it fires.
+// A callback ref, not useRef + useEffect: several call sites (RepairRoom) conditionally return
+// a loading/error state *before* the heading with this ref ever renders. A plain ref's .current
+// changing from null to the real node doesn't re-run an effect (refs aren't reactive), so that
+// pattern left the heading permanently stuck at opacity:0 — confirmed live (RepairRoom's
+// .page-heading never gained .is-in-view). A callback ref fires exactly when React actually
+// attaches the node, regardless of how many renders happened before that, which fixes it.
 function useInViewOnce<T extends HTMLElement>(threshold = 0.3) {
-  const ref = useRef<T>(null);
   const [isInView, setIsInView] = useState(false);
+  const observerRef = useRef<IntersectionObserver | null>(null);
 
-  useEffect(() => {
-    const node = ref.current;
-    if (!node || isInView) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setIsInView(true);
-          observer.disconnect();
-        }
-      },
-      { threshold }
-    );
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [isInView, threshold]);
+  const ref = useCallback(
+    (node: T | null) => {
+      observerRef.current?.disconnect();
+      observerRef.current = null;
+      if (!node) return;
+      const observer = new IntersectionObserver(
+        ([entry]) => {
+          if (entry.isIntersecting) {
+            setIsInView(true);
+            observer.disconnect();
+          }
+        },
+        { threshold }
+      );
+      observer.observe(node);
+      observerRef.current = observer;
+    },
+    [threshold]
+  );
 
   return { ref, isInView };
 }
@@ -61,9 +71,41 @@ const DEV_ACTORS = {
 
 type ActorKey = keyof typeof DEV_ACTORS;
 
+// A shared bar that slides to whichever nav link is active, instead of each link getting its
+// own static underline — a continuous visual thread as you move between pages. Measures the
+// active <a>'s position via a plain DOM query (react-router's NavLink already puts an "active"
+// class on it) rather than tracking route-to-ref mappings by hand.
+function PrimaryNav() {
+  const location = useLocation();
+  const navRef = useRef<HTMLElement>(null);
+  const [underline, setUnderline] = useState({ left: 0, width: 0, visible: false });
+
+  useEffect(() => {
+    const active = navRef.current?.querySelector<HTMLAnchorElement>('a.active');
+    setUnderline(active ? { left: active.offsetLeft, width: active.offsetWidth, visible: true } : { left: 0, width: 0, visible: false });
+  }, [location.pathname]);
+
+  return (
+    <nav aria-label="Primary" ref={navRef} className="primary-nav">
+      <NavLink to="/vehicles" className={({ isActive }) => (isActive ? 'active' : undefined)}>
+        My Garage
+      </NavLink>
+      <NavLink to="/jobs/job-1" className={({ isActive }) => (isActive ? 'active' : undefined)}>
+        Repair Room
+      </NavLink>
+      <span
+        className="nav-underline"
+        aria-hidden="true"
+        style={{ left: underline.left, width: underline.width, opacity: underline.visible ? 1 : 0 }}
+      />
+    </nav>
+  );
+}
+
 export default function App() {
   const [actorKey, setActorKey] = useState<ActorKey>('customer');
   const api = useMemo(() => createApiAdapter({ baseUrl: API_BASE_URL, actor: DEV_ACTORS[actorKey] }), [actorKey]);
+  const location = useLocation();
 
   return (
     <div className="app-shell">
@@ -71,17 +113,18 @@ export default function App() {
       <DevSessionBar actorKey={actorKey} onChange={setActorKey} />
       <header className="app-header">
         <Link to="/" className="brand"><span className="accent">&#9679;</span> Travel Automotive</Link>
-        <nav aria-label="Primary">
-          <Link to="/vehicles">My Garage</Link>
-          <Link to="/jobs/job-1">Repair Room</Link>
-        </nav>
+        <PrimaryNav />
       </header>
       <main id="main-content">
-        <Routes>
-          <Route path="/" element={<Home api={api} />} />
-          <Route path="/vehicles" element={<Vehicles api={api} actorKey={actorKey} />} />
-          <Route path="/jobs/:id" element={<RepairRoom api={api} actorKey={actorKey} />} />
-        </Routes>
+        {/* key={pathname} forces a remount on every navigation, replaying the page-enter CSS
+            animation each time — the connective "same continuous app" transition between routes. */}
+        <div key={location.pathname} className="page-transition">
+          <Routes>
+            <Route path="/" element={<Home api={api} />} />
+            <Route path="/vehicles" element={<Vehicles api={api} actorKey={actorKey} />} />
+            <Route path="/jobs/:id" element={<RepairRoom api={api} actorKey={actorKey} />} />
+          </Routes>
+        </div>
       </main>
     </div>
   );
@@ -237,8 +280,8 @@ function Home({ api }: { api: ApiAdapter }) {
       </section>
 
       <div className="entry-doors">
-        {entryDoors.map((door) => (
-          <Link key={door.label} to="/vehicles" className="entry-door">
+        {entryDoors.map((door, index) => (
+          <Link key={door.label} to="/vehicles" className="entry-door" style={{ animationDelay: `${index * 0.08}s` }}>
             {door.icon}
             <h2>{door.label}</h2>
             <p>{door.description}</p>
@@ -255,8 +298,8 @@ function Home({ api }: { api: ApiAdapter }) {
         {catalog.data && catalog.data.data.length === 0 && <p>No services are published yet.</p>}
         {catalog.data && catalog.data.data.length > 0 && (
           <ul className="service-list">
-            {catalog.data.data.map((service) => (
-              <li key={service.id} className="service-card">
+            {catalog.data.data.map((service, index) => (
+              <li key={service.id} className="service-card" style={{ animationDelay: `${index * 0.08}s` }}>
                 <strong>{service.name}</strong>
                 <span>{service.delivery.join(' / ')}</span>
               </li>
@@ -269,6 +312,7 @@ function Home({ api }: { api: ApiAdapter }) {
 }
 
 function Vehicles({ api, actorKey }: { api: ApiAdapter; actorKey: ActorKey }) {
+  const { ref: headingRef, isInView: headingInView } = useInViewOnce<HTMLHeadingElement>();
   const queryClient = useQueryClient();
   // actorKey is part of the query key (not just an api closure dependency) so switching the
   // dev-session role refetches instead of silently reusing another actor's cached data/error.
@@ -291,15 +335,17 @@ function Vehicles({ api, actorKey }: { api: ApiAdapter; actorKey: ActorKey }) {
 
   return (
     <section aria-labelledby="garage-heading">
-      <h1 id="garage-heading">My Garage</h1>
+      <h1 id="garage-heading" ref={headingRef} className={`page-heading${headingInView ? ' is-in-view' : ''}`}>
+        My Garage
+      </h1>
 
       {vehicles.isPending && <p role="status">Loading your vehicles&hellip;</p>}
       {vehicles.isError && <ErrorPanel error={vehicles.error} onRetry={() => vehicles.refetch()} />}
       {vehicles.data && vehicles.data.data.length === 0 && <p>No vehicles yet &mdash; add your first one below.</p>}
       {vehicles.data && vehicles.data.data.length > 0 && (
         <ul className="vehicle-list">
-          {vehicles.data.data.map((vehicle) => (
-            <li key={vehicle.id} className="vehicle-card">
+          {vehicles.data.data.map((vehicle, index) => (
+            <li key={vehicle.id} className="vehicle-card" style={{ animationDelay: `${index * 0.08}s` }}>
               <strong>{vehicle.year} {vehicle.make} {vehicle.model}</strong>
               {typeof vehicle.mileage === 'number' && <span>{vehicle.mileage.toLocaleString()} mi</span>}
             </li>
@@ -344,6 +390,9 @@ function RepairRoom({ api, actorKey }: { api: ApiAdapter; actorKey: ActorKey }) 
   const { id = 'job-1' } = useParams();
   const queryClient = useQueryClient();
   const job = useQuery({ queryKey: ['job', id, actorKey], queryFn: () => api.getJob(id) });
+  // Called before the early returns below (loading/error) so it runs on every render, same as
+  // every other hook — conditionally calling hooks after an early return breaks React's rules.
+  const { ref: headingRef, isInView: headingInView } = useInViewOnce<HTMLHeadingElement>();
 
   // The contract has no GET /quotes/{id} and Job carries no linked quote id/version (see
   // docs/integration-status.md and the CR-002 note below), so "quote-1" / expectedVersion 1 are
@@ -364,7 +413,13 @@ function RepairRoom({ api, actorKey }: { api: ApiAdapter; actorKey: ActorKey }) 
 
   return (
     <section aria-labelledby="repair-room-heading">
-      <h1 id="repair-room-heading">Repair Room</h1>
+      <h1
+        id="repair-room-heading"
+        ref={headingRef}
+        className={`page-heading${headingInView ? ' is-in-view' : ''}`}
+      >
+        Repair Room
+      </h1>
       <p>
         Status: <StatusBadge status={record.status} /> &middot; version {record.version}
       </p>
