@@ -43,7 +43,7 @@ export default function App() {
       <a href="#main-content" className="skip-link">Skip to content</a>
       <DevSessionBar actorKey={actorKey} onChange={setActorKey} />
       <header className="app-header">
-        <Link to="/" className="brand"><span className="accent">&#9679;</span> Your Personal Garage</Link>
+        <Link to="/" className="brand"><span className="accent">&#9679;</span> Travel Automotive</Link>
         <nav aria-label="Primary">
           <Link to="/vehicles">My Garage</Link>
           <Link to="/jobs/job-1">Repair Room</Link>
@@ -114,16 +114,26 @@ function Home({ api }: { api: ApiAdapter }) {
           <source src="/hero.mp4" type="video/mp4" />
         </video>
         <div className="hero-content">
-          <h1 className="hero-headline">
-            {HERO_LINES.map((line, index) => (
-              <span key={line} className="hero-line" style={{ color: `var(--hero-line-${index + 1})` }}>
-                {line}
-              </span>
-            ))}
+          <h1 className="hero-brand">
+            <span className="hero-brand-line">Travel</span>
+            <span className="hero-brand-line hero-brand-accent">Automotive</span>
           </h1>
-          <p>Every path below starts with your vehicle.</p>
         </div>
       </div>
+
+      {/* Relocated off the video per feedback: the four-sentence promise reads more reliably on
+          a plain dark card than fighting a moving background, even a well-scrimmed one. */}
+      <section className="promise-card" aria-labelledby="promise-heading">
+        <h2 id="promise-heading" className="promise-headline">
+          {HERO_LINES.map((line, index) => (
+            <span key={line} className="promise-line" style={{ color: `var(--hero-line-${index + 1})` }}>
+              {line}
+            </span>
+          ))}
+        </h2>
+        <p>Every path below starts with your vehicle.</p>
+      </section>
+
       <div className="entry-doors">
         {entryDoors.map((door) => (
           <Link key={door.label} to="/vehicles" className="entry-door">

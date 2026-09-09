@@ -40,7 +40,7 @@
   --hero-line-2: #22d3ee; /* cyan, matches hero.mp4's neon ring — ~11.6:1 on #0a0a0a */
   --hero-line-3: #ffb020; /* amber, matches hero.mp4's garage lighting — ~11.5:1 on #0a0a0a */
   --hero-line-4: var(--color-accent-text); /* brand red — ~10.7:1 on #0a0a0a */
-  --font-display: 'Space Grotesk', 'Inter', system-ui, sans-serif;
+  --font-display: 'Anton', 'Inter', system-ui, sans-serif;
   --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --radius-sm: 6px;
   --radius-md: 10px;
@@ -73,12 +73,16 @@ body {
   line-height: 1.55;
 }
 
+/* Anton only ships one (already very heavy) weight, so font-weight:700 was a no-op fake-bold
+   before — set to 400. text-transform: uppercase + slight positive tracking (was -0.01em)
+   matches the flyer's all-caps poster lettering instead of tightened "modern sans" tracking. */
 h1,
 h2,
 h3 {
   font-family: var(--font-display);
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
   margin: 0;
 }
 
@@ -149,11 +153,12 @@ a {
 
 .brand {
   font-family: var(--font-display);
-  font-weight: 700;
+  font-weight: 400;
   font-size: 1.15rem;
   text-decoration: none;
   color: var(--color-text);
-  letter-spacing: -0.01em;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
 }
 
 .brand .accent {
@@ -195,7 +200,7 @@ main {
   padding: var(--space-6) var(--space-4);
   border-radius: 0 0 var(--radius-lg) var(--radius-lg);
   overflow: hidden;
-  min-height: 520px;
+  min-height: 420px; /* was 520px — only the wordmark lives here now, not the full promise text */
   display: flex;
   align-items: flex-end;
   background: var(--color-bg); /* shows while the video loads */
@@ -243,25 +248,53 @@ main {
   text-align: center;
 }
 
-/* Each sentence is its own block-level span with a fixed, solid color (--hero-line-1..4) rather
-   than one run of mix-blend-mode text — flat color that just wins on contrast, not one that
-   reacts to (and can be undermined by) whatever the video is doing underneath. */
-.hero-headline {
+/* Hero now carries only the business wordmark (moved off the four-sentence promise, which lives
+   in .promise-card below instead) — a two-line stacked treatment echoing the flyer's own
+   "TRAVEL" (white) / "AUTOMOTIVE" (accent) two-tone logo lockup. */
+.hero-brand {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.15em;
-  font-size: clamp(1.75rem, 4.5vw, 3rem);
-  line-height: 1.15;
-  max-width: 900px;
-  margin: 0 auto;
+  gap: 0.02em;
+  font-size: clamp(2.5rem, 9vw, 6rem);
+  line-height: 0.95;
 }
 
-.hero-line {
+.hero-brand-line {
+  display: block;
+  color: var(--color-text);
+}
+
+.hero-brand-accent {
+  color: var(--color-accent-text);
+}
+
+/* The relocated four-sentence promise: same one-color-per-sentence idea as before, just sitting
+   on a plain dark card in normal page flow instead of over the video — no scrim/contrast fight
+   to manage, so it only needs to be readable, not defensive against a bright frame. */
+.promise-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5) var(--space-4);
+  margin-bottom: var(--space-5);
+  text-align: center;
+}
+
+.promise-headline {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2em;
+  font-size: clamp(1.5rem, 4vw, 2.5rem);
+  line-height: 1.2;
+}
+
+.promise-line {
   display: block;
 }
 
-.hero p {
+.promise-card p {
   color: var(--color-text-muted);
   font-size: 1.05rem;
   margin-top: var(--space-3);
