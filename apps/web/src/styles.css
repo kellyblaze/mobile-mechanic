@@ -178,9 +178,7 @@ main {
 
 /* Full-bleed video hero. isolation: isolate scopes mix-blend-mode below to *this* stacking
    context only (video + scrim), so the blended headline can't leak through to page content
-   behind .hero. Gradient lightened from the earlier flat-color hero (0.55/0.85 opacity) to
-   0.2/0.6 — enough scrim for the (unblended) paragraph to stay readable on its own, without
-   flattening the video into near-black before the headline blends against it. */
+   behind .hero. */
 .hero {
   position: relative;
   isolation: isolate;
@@ -202,11 +200,22 @@ main {
   object-fit: cover;
 }
 
+/* Localized scrim, not a full-hero gradient: anchored at the bottom-left corner where
+   .hero-content actually sits (align-items: flex-end + content starting at the left edge), so
+   the shadow sits right behind the headline/paragraph and fades out to the untouched video
+   toward the top-right. 0% 100% anchors to that corner regardless of viewport width — a
+   percentage-based position would drift the shadow away from the text on wide screens. */
 .hero::before {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(10, 10, 10, 0.2) 0%, rgba(10, 10, 10, 0.6) 100%);
+  background: radial-gradient(
+    70% 85% at 0% 100%,
+    rgba(10, 10, 10, 0.85) 0%,
+    rgba(10, 10, 10, 0.55) 45%,
+    rgba(10, 10, 10, 0.15) 75%,
+    rgba(10, 10, 10, 0) 100%
+  );
 }
 
 .hero-content {
