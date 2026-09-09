@@ -139,6 +139,9 @@ function Home({ api }: { api: ApiAdapter }) {
           <Link key={door.label} to="/vehicles" className="entry-door">
             <h2>{door.label}</h2>
             <p>{door.description}</p>
+            {/* The whole card is the <Link>, so this is a styled affordance (span), not a
+                nested interactive element — a real <button> inside an <a> is invalid HTML. */}
+            <span className="entry-door-cta">Get started</span>
           </Link>
         ))}
       </div>

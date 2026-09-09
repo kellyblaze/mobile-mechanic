@@ -340,6 +340,27 @@ main {
   color: var(--color-text-muted);
 }
 
+/* Styled to match the real <button> elsewhere (gold pill, dark text) even though it's a <span>
+   — the card itself is the click target (.entry-door is the <Link>), this is the visible
+   affordance, not a second interactive element. */
+.entry-door-cta {
+  display: inline-block;
+  margin-top: var(--space-3);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
+  color: var(--color-bg);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.entry-door:hover .entry-door-cta,
+.entry-door:focus-visible .entry-door-cta {
+  background: var(--color-accent-hover);
+}
+
 .service-list,
 .vehicle-list {
   list-style: none;
