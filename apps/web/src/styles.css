@@ -599,6 +599,20 @@ main {
   animation: card-enter 0.4s ease-out both;
 }
 
+/* .vehicle-card is now a <Link> (My Garage cards navigate to the Vehicle Passport), not a plain
+   <li> — .service-card stays non-interactive, so this styling is vehicle-card-only rather than
+   added to the shared rule above. */
+.vehicle-card {
+  text-decoration: none;
+  color: var(--color-text);
+  transition: border-color 0.15s ease;
+}
+
+.vehicle-card:hover,
+.vehicle-card:focus-visible {
+  border-color: var(--color-accent);
+}
+
 .service-card span,
 .vehicle-card span {
   color: var(--color-accent-text);
