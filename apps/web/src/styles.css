@@ -195,53 +195,52 @@ main {
   padding: var(--space-6) var(--space-4);
   border-radius: 0 0 var(--radius-lg) var(--radius-lg);
   overflow: hidden;
-  min-height: 380px;
+  min-height: 520px;
   display: flex;
   align-items: flex-end;
   background: var(--color-bg); /* shows while the video loads */
 }
 
+/* object-position shifted up from center (50%) to 35%: hero.mp4's car sits roughly mid-frame,
+   so cropping more off the top than the bottom pushes the car higher within the visible hero
+   and keeps more of the floor/reflection area below it — that's the space .hero-content now
+   sits in, per "place the headline below the car". */
 .hero-video {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: center 35%;
 }
 
-/* Localized scrim, not a full-hero gradient: anchored at the bottom-left corner where
-   .hero-content actually sits (align-items: flex-end + content starting at the left edge), so
-   the shadow sits right behind the headline/paragraph and fades out to the untouched video
-   toward the top-right. 0% 100% anchors to that corner regardless of viewport width — a
-   percentage-based position would drift the shadow away from the text on wide screens.
-   Solid black held out to 45% (not fading from 0%) and cut short at 90% (not 100%) so the
-   transition reads as a deliberate edge rather than a gradual tint that can disappear into
-   whatever the video itself happens to be doing at a given frame — the source video has plenty
-   of naturally dark moments where a subtler gradient was indistinguishable from ambient footage
-   darkness. */
-/* Pushed further out than the first pass (45%/70%/90% -> 60%/80%/100% on a bigger 95%/100%
-   ellipse): the video's neon ring sits right around the hero's horizontal midpoint, which is
-   also roughly where .hero-content's text (max-width: 34ch) ends — the old fade zone landed
-   exactly on top of the ring, and the ring is bright enough to punch through even a 50%-opacity
-   black overlay. Solid black now reliably reaches past the text column before any fade starts,
-   confirmed against the ring's actual on-screen position, not just against a plain dark frame. */
+/* Bottom band scrim, not a corner: the headline now sits centered across the full hero width
+   below the car (see .hero-content) rather than in a left column, so the darkening needs to
+   cover a horizontal strip along the bottom, not a corner. Top ~55% of the hero (where the car
+   itself sits) stays untouched; the band under it fades in and holds solid by the very bottom
+   where the text lines are. Solid colors on the headline (see .hero-line) already carry most of
+   the contrast burden — this band is a second line of defense against a bright frame, not the
+   only thing keeping text readable. */
 .hero::before {
   content: '';
   position: absolute;
   inset: 0;
-  background: radial-gradient(
-    95% 100% at 0% 100%,
-    rgba(10, 10, 10, 1) 0%,
-    rgba(10, 10, 10, 1) 60%,
-    rgba(10, 10, 10, 0.6) 80%,
-    rgba(10, 10, 10, 0) 100%
+  background: linear-gradient(
+    180deg,
+    rgba(10, 10, 10, 0) 0%,
+    rgba(10, 10, 10, 0) 50%,
+    rgba(10, 10, 10, 0.75) 70%,
+    rgba(10, 10, 10, 0.95) 100%
   );
 }
 
+/* Full width, centered, sitting at the bottom of the hero (align-items: flex-end on .hero) —
+   "below the car, across its width" instead of the earlier left-aligned narrow column. */
 .hero-content {
   position: relative;
   z-index: 1;
-  max-width: 34ch;
+  width: 100%;
+  text-align: center;
 }
 
 /* Each sentence is its own block-level span with a fixed, solid color (--hero-line-1..4) rather
@@ -250,9 +249,12 @@ main {
 .hero-headline {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 0.15em;
   font-size: clamp(1.75rem, 4.5vw, 3rem);
   line-height: 1.15;
+  max-width: 900px;
+  margin: 0 auto;
 }
 
 .hero-line {
