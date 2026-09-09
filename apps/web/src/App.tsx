@@ -22,7 +22,7 @@ export default function App() {
       <a href="#main-content" className="skip-link">Skip to content</a>
       <DevSessionBar actorKey={actorKey} onChange={setActorKey} />
       <header className="app-header">
-        <Link to="/" className="brand">Your Personal Garage</Link>
+        <Link to="/" className="brand"><span className="accent">&#9679;</span> Your Personal Garage</Link>
         <nav aria-label="Primary">
           <Link to="/vehicles">My Garage</Link>
           <Link to="/jobs/job-1">Repair Room</Link>
@@ -66,9 +66,25 @@ function Home({ api }: { api: ApiAdapter }) {
 
   return (
     <section className="home">
-      <div className="hero">
-        <h1>Tell us what&rsquo;s wrong. See the plan. Approve the price. Follow the repair.</h1>
-        <p>Every path below starts with your vehicle.</p>
+      {/* Photo: Pexels, free to use under the Pexels License, no attribution required.
+          "Young mechanic polishing a red car in workshop" —
+          https://www.pexels.com/photo/young-mechanic-polishing-a-red-car-in-workshop-37809560/
+          Chosen because it ties the accent-red palette directly to real photography, matching
+          the reference's full-bleed dark garage/vehicle hero. */}
+      <div
+        className="hero"
+        style={{
+          backgroundImage:
+            "url('https://images.pexels.com/photos/37809560/pexels-photo-37809560/free-photo-of-young-mechanic-polishing-a-red-car-in-workshop.jpeg?cs=tinysrgb&dpr=1&w=1600')"
+        }}
+      >
+        <div className="hero-content">
+          <h1>
+            Tell us what&rsquo;s <span className="accent">wrong</span>. See the plan. Approve the price. Follow the
+            repair.
+          </h1>
+          <p>Every path below starts with your vehicle.</p>
+        </div>
       </div>
       <div className="entry-doors">
         {entryDoors.map((door) => (
