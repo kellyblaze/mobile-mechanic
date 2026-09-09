@@ -48,9 +48,13 @@ Visit `http://localhost:5173`. Add a vehicle in My Garage; approve the quote in 
 - No `packages/ui` package yet — design tokens live directly in `apps/web/src/styles.css`; deferred (YAGNI) until a second consuming app/package exists.
 - `apps/web/package.json` and `packages/ui` (future) add dependencies that touched the shared `pnpm-lock.yaml`. Flagging per the ownership agreement's dependency-request process even though I applied it directly (no live Codex session to route the request through) — please review the lockfile diff for conflicts against any concurrent Codex work.
 
+## Post-review fixes (commit `33fc3ab`)
+
+A code-review pass on this slice found 1 HIGH and 3 MEDIUM issues, all fixed and re-verified (typecheck/test/build clean, HIGH fix re-confirmed live in the browser): actor-scoped query keys so switching the dev-role actor actually refetches instead of showing stale/wrong-actor data; hid the quote-approval button after a successful accept instead of letting a retry hit an already-stale version; validated the parsed error-response shape before casting (a non-conforming body like Fastify's default 404 now degrades to a typed generic error instead of throwing); and fixed two button labels that rendered the literal string `&hellip;` instead of an ellipsis. Filed `docs/change-requests/CR-002.md` for the underlying gap (Job doesn't expose its linked quote id/version, and there's no `GET /quotes/{id}` to recover from a 409 with).
+
 ## What the other agent (Codex) must do next
 
 1. Review/merge `claude/frontend-foundation` into the working branch; resolve `pnpm-lock.yaml` if Codex has made concurrent backend commits.
-2. Action CR-001 (generated client mutation/header support) — or confirm the fetch-based stopgap is acceptable long-term.
+2. Action CR-001 (generated client mutation/header support) and CR-002 (job→quote linkage, `GET /quotes/{id}`) — or confirm the fetch-based stopgap is acceptable long-term.
 3. Continue publishing contract operations for booking/availability, messages, findings, change orders, completion, invoices, payments, and `/vehicles/{id}/history` so the remaining required screens can move from "not started" to real integration.
-4. No backend defects found in the five implemented operations — all behaved exactly per `openapi.yaml` and `docs/architecture.md` (role checks, validation, version-conflict, 404/403 paths all verified live).
+4. No backend defects found in the five implemented operations — all behaved exactly per `openapi.yaml` and `docs/architecture.md` (role checks, validation, version-conflict, 404/403 paths all verified live). One recommendation for Codex's own backlog, not requested as a change: `apps/api/src/server.ts` has no `setNotFoundHandler`, so unmatched routes fall back to Fastify's default error shape instead of this project's `ApiError` envelope.
