@@ -60,4 +60,28 @@ describe('createApiAdapter', () => {
       code: 'STALE_VERSION'
     });
   });
+
+  it('returns the created vehicle on a successful 201 response', async () => {
+    const created = { id: 'vehicle-2', customerId: 'customer-demo', year: 2018, make: 'Honda', model: 'Civic' };
+    const fetchImpl = mockFetch(201, { data: created });
+    const api = createApiAdapter({ baseUrl: 'http://api.test', actor: { userId: 'customer-demo', role: 'customer' }, fetchImpl });
+
+    const result = await api.createVehicle({ year: 2018, make: 'Honda', model: 'Civic' });
+
+    expect(result.data).toEqual(created);
+  });
+
+  it('falls back to a generic error when the server returns a body that does not match the ApiError shape', async () => {
+    // e.g. Fastify's default 404 handler shape ({message, error, statusCode}), not this project's {error:{code,message,requestId}} envelope.
+    const fetchImpl = mockFetch(404, { statusCode: 404, error: 'Not Found', message: 'Route GET:/api/v1/unknown not found' });
+    const api = createApiAdapter({ baseUrl: 'http://api.test', actor: { userId: 'customer-demo', role: 'customer' }, fetchImpl });
+
+    try {
+      await api.listVehicles();
+      expect.unreachable('expected listVehicles to throw');
+    } catch (error) {
+      expect(error).toBeInstanceOf(ApiRequestError);
+      expect((error as ApiRequestError).code).toBe('UNKNOWN_ERROR');
+    }
+  });
 });

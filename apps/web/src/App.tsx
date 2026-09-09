@@ -19,6 +19,7 @@ export default function App() {
 
   return (
     <div className="app-shell">
+      <a href="#main-content" className="skip-link">Skip to content</a>
       <DevSessionBar actorKey={actorKey} onChange={setActorKey} />
       <header className="app-header">
         <Link to="/" className="brand">Your Personal Garage</Link>
@@ -30,8 +31,8 @@ export default function App() {
       <main id="main-content">
         <Routes>
           <Route path="/" element={<Home api={api} />} />
-          <Route path="/vehicles" element={<Vehicles api={api} />} />
-          <Route path="/jobs/:id" element={<RepairRoom api={api} />} />
+          <Route path="/vehicles" element={<Vehicles api={api} actorKey={actorKey} />} />
+          <Route path="/jobs/:id" element={<RepairRoom api={api} actorKey={actorKey} />} />
         </Routes>
       </main>
     </div>
@@ -97,9 +98,11 @@ function Home({ api }: { api: ApiAdapter }) {
   );
 }
 
-function Vehicles({ api }: { api: ApiAdapter }) {
+function Vehicles({ api, actorKey }: { api: ApiAdapter; actorKey: ActorKey }) {
   const queryClient = useQueryClient();
-  const vehicles = useQuery({ queryKey: ['vehicles'], queryFn: () => api.listVehicles() });
+  // actorKey is part of the query key (not just an api closure dependency) so switching the
+  // dev-session role refetches instead of silently reusing another actor's cached data/error.
+  const vehicles = useQuery({ queryKey: ['vehicles', actorKey], queryFn: () => api.listVehicles() });
   const [form, setForm] = useState({ year: '', make: '', model: '', mileage: '' });
 
   const createVehicle = useMutation({
@@ -112,7 +115,7 @@ function Vehicles({ api }: { api: ApiAdapter }) {
       }),
     onSuccess: () => {
       setForm({ year: '', make: '', model: '', mileage: '' });
-      void queryClient.invalidateQueries({ queryKey: ['vehicles'] });
+      void queryClient.invalidateQueries({ queryKey: ['vehicles', actorKey] });
     }
   });
 
@@ -159,7 +162,7 @@ function Vehicles({ api }: { api: ApiAdapter }) {
           <input inputMode="numeric" value={form.mileage} onChange={(event) => setForm({ ...form, mileage: event.target.value })} />
         </label>
         <button type="submit" disabled={createVehicle.isPending}>
-          {createVehicle.isPending ? 'Adding&hellip;' : 'Add vehicle'}
+          {createVehicle.isPending ? 'Adding…' : 'Add vehicle'}
         </button>
         {createVehicle.isError && <ValidationErrors error={createVehicle.error} />}
       </form>
@@ -167,21 +170,27 @@ function Vehicles({ api }: { api: ApiAdapter }) {
   );
 }
 
-function RepairRoom({ api }: { api: ApiAdapter }) {
+function RepairRoom({ api, actorKey }: { api: ApiAdapter; actorKey: ActorKey }) {
   const { id = 'job-1' } = useParams();
   const queryClient = useQueryClient();
-  const job = useQuery({ queryKey: ['job', id], queryFn: () => api.getJob(id) });
+  const job = useQuery({ queryKey: ['job', id, actorKey], queryFn: () => api.getJob(id) });
 
+  // The contract has no GET /quotes/{id} and Job carries no linked quote id/version (see
+  // docs/integration-status.md and the CR-002 note below), so "quote-1" / expectedVersion 1 are
+  // the only real values available in this checkpoint, not invented ones — they match the
+  // backend's seeded fixture exactly. Once accepted, hide the action instead of letting a second
+  // click retry a version we already know is stale.
   const acceptQuote = useMutation({
     mutationFn: (input: { quoteId: string; expectedVersion: number }) =>
       api.acceptQuote(input.quoteId, { expectedVersion: input.expectedVersion, idempotencyKey: crypto.randomUUID() }),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['job', id] })
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['job', id, actorKey] })
   });
 
   if (job.isPending) return <p role="status">Loading Repair Room&hellip;</p>;
   if (job.isError) return <ErrorPanel error={job.error} onRetry={() => job.refetch()} />;
 
   const record = job.data.data;
+  const canOfferApproval = record.allowedActions.includes('approve_change_order') && !acceptQuote.isSuccess;
 
   return (
     <section aria-labelledby="repair-room-heading">
@@ -191,15 +200,15 @@ function RepairRoom({ api }: { api: ApiAdapter }) {
       </p>
       <p>Allowed actions: {record.allowedActions.length ? record.allowedActions.join(', ') : 'none yet'}</p>
 
-      {record.allowedActions.includes('approve_change_order') && (
+      {canOfferApproval && (
         <button
           onClick={() => acceptQuote.mutate({ quoteId: 'quote-1', expectedVersion: 1 })}
           disabled={acceptQuote.isPending}
         >
-          {acceptQuote.isPending ? 'Approving&hellip;' : 'Approve pending quote (quote-1)'}
+          {acceptQuote.isPending ? 'Approving…' : 'Approve pending quote (quote-1)'}
         </button>
       )}
-      {acceptQuote.isError && <ValidationErrors error={acceptQuote.error} />}
+      {acceptQuote.isError && <ValidationErrors error={acceptQuote.error} isQuoteApproval />}
       {acceptQuote.isSuccess && (
         <p role="status">Quote accepted &mdash; total ${(acceptQuote.data.data.totalMinor / 100).toFixed(2)}.</p>
       )}
@@ -226,12 +235,19 @@ function ErrorPanel({ error, onRetry }: { error: unknown; onRetry: () => void })
   );
 }
 
-function ValidationErrors({ error }: { error: unknown }) {
+function ValidationErrors({ error, isQuoteApproval = false }: { error: unknown; isQuoteApproval?: boolean }) {
   if (!(error instanceof ApiRequestError)) {
     return <p role="alert">Something went wrong. Please try again.</p>;
   }
   if (error.status === 409) {
-    return <p role="alert">{error.message} Refresh to get the latest version.</p>;
+    // There is no GET /quotes/{id} yet (see docs/integration-status.md), so this checkpoint
+    // can't actually fetch a fresher version to retry against — don't promise a refresh will help.
+    return (
+      <p role="alert">
+        {error.message}
+        {isQuoteApproval ? ' This quote may already be approved.' : ' Refresh to get the latest version.'}
+      </p>
+    );
   }
   if (error.fieldErrors) {
     return (

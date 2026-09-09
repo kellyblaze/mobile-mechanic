@@ -19,6 +19,18 @@ export type Session = { user: { id: string; role: string }; capabilities: string
 
 export type ApiErrorBody = { error: { code: string; message: string; fieldErrors?: Record<string, string[]>; requestId: string } };
 
+function isApiErrorBody(payload: unknown): payload is ApiErrorBody {
+  if (typeof payload !== 'object' || payload === null || !('error' in payload)) return false;
+  const err = (payload as { error: unknown }).error;
+  return (
+    typeof err === 'object' &&
+    err !== null &&
+    typeof (err as { code: unknown }).code === 'string' &&
+    typeof (err as { message: unknown }).message === 'string' &&
+    typeof (err as { requestId: unknown }).requestId === 'string'
+  );
+}
+
 export class ApiRequestError extends Error {
   readonly status: number;
   readonly code: string;
@@ -40,12 +52,12 @@ export type ApiAdapterOptions = {
   fetchImpl?: typeof fetch;
 };
 
-type RequestInit = { method?: string; body?: unknown; extraHeaders?: Record<string, string> };
+type AdapterRequestInit = { method?: string; body?: unknown; extraHeaders?: Record<string, string> };
 
 export function createApiAdapter(options: ApiAdapterOptions) {
   const f = options.fetchImpl ?? fetch;
 
-  async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  async function request<T>(path: string, init: AdapterRequestInit = {}): Promise<T> {
     const headers: Record<string, string> = { 'content-type': 'application/json', ...(init.extraHeaders ?? {}) };
     if (options.actor) {
       headers['x-dev-user-id'] = options.actor.userId;
@@ -57,10 +69,10 @@ export function createApiAdapter(options: ApiAdapterOptions) {
       headers,
       body: init.body !== undefined ? JSON.stringify(init.body) : undefined
     });
-    const payload = await response.json().catch(() => null);
+    const payload: unknown = await response.json().catch(() => null);
     if (!response.ok) {
       const fallback: ApiErrorBody = { error: { code: 'UNKNOWN_ERROR', message: 'The request failed.', requestId: 'unknown' } };
-      throw new ApiRequestError(response.status, (payload as ApiErrorBody) ?? fallback);
+      throw new ApiRequestError(response.status, isApiErrorBody(payload) ? payload : fallback);
     }
     return payload as T;
   }
