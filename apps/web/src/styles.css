@@ -1,18 +1,19 @@
 /* ===================================================================
    Design tokens
-   Palette sampled directly from the Dribbble reference (canvas pixel
-   sampling of the shot images, not eyeballed):
-     https://dribbble.com/shots/23532914-AutoWorks-Black-and-Red-Minimalist-Modern-Auto-Repair-Website
+   Base dark palette sampled directly from the Dribbble reference (canvas pixel sampling of the
+   shot images, not eyeballed): https://dribbble.com/shots/23532914-AutoWorks-Black-and-Red-Minimalist-Modern-Auto-Repair-Website
    Dominant background cluster:  rgb(0,0,0)–rgb(32,32,32)   -> --color-bg / --color-surface
    Secondary (cooler) panel:      rgb(32,32,48)              -> --color-surface-alt
    Headline text cluster:         rgb(248,248,256) (~white)  -> --color-text
    Body/muted text cluster:       rgb(160,160,160)           -> --color-text-muted
-   Accent red cluster:            rgb(216,60,72)             -> --color-accent
-   Typography: exact typeface can't be extracted from a flat shot image; Space Grotesk was
-   chosen to match the bold weight and tight tracking visually observed in the headline
-   ("AutoWorks - Drive with Confidence"). Photography: real Pexels photos (see App.tsx comments
-   for each photo's Pexels URL/credit) replace the placeholder hero, matching the reference's
-   full-bleed dark garage/vehicle photography under a gradient overlay.
+
+   Brand accent updated to the business's own flyer (Travel Automotive) — gold/yellow, not the
+   Dribbble reference's red. Unlike the Dribbble shot, the flyer was shared as a chat image, not
+   a URL, so this couldn't be canvas-sampled the same way; #f2b705 is a close visual estimate of
+   the flyer's "AUTOMOTIVE" text / banner gold, not an extracted value — flag it if it needs to
+   match a specific print Pantone/hex the business already uses. Errors/danger states were split
+   into their own --color-danger (kept red) rather than following the accent to gold, since
+   "danger" as a UI color has a fairly fixed meaning independent of brand color.
    =================================================================== */
 :root {
   --color-bg: #0a0a0a;
@@ -22,24 +23,28 @@
   --color-border-strong: rgba(255, 255, 255, 0.18);
   --color-text: #f7f7f7;
   --color-text-muted: #a3a3a3;
-  --color-accent: #d83c48;
-  --color-accent-hover: #b8303a;
-  --color-accent-soft: rgba(216, 60, 72, 0.14);
-  /* Brighter red for small text on dark surfaces: the sampled #d83c48 only reaches ~4.08:1 on
-     --color-surface at small sizes (below WCAG AA's 4.5:1 for normal text). #d83c48 stays for
-     large/bold elements (buttons, the headline word) where the 3:1 large-text threshold applies
-     and it measures ~4.5–4.65:1; this variant is for labels/badges/errors, ~5.9:1 on surface. */
-  --color-accent-text: #ff5566;
+  --color-accent: #f2b705;
+  --color-accent-hover: #d4a300;
+  --color-accent-soft: rgba(242, 183, 5, 0.14);
+  /* Unlike the old red (which needed a separate brighter variant for small text), this gold
+     already measures ~10.1:1 on --color-surface even at small sizes — comfortably past WCAG
+     AA's 4.5:1 — so --color-accent-text is the same value, kept as its own token only so
+     call sites don't need to change if that ever stops being true. */
+  --color-accent-text: #f2b705;
+  /* Error/danger state, deliberately not gold — the former accent red, decoupled from the brand
+     color so validation/conflict messages keep reading as errors regardless of brand palette. */
+  --color-danger: #ff5566;
   --color-danger-bg: rgba(216, 60, 72, 0.14);
   /* Hero headline: one solid color per sentence instead of blending into the video, so each
      line just wins on contrast (all ~10:1+ against near-black, verified below) regardless of
      what's playing behind it. Not arbitrary: line 1 is neutral white, lines 2-3 are drawn from
      the hero video's own dominant colors (the neon ring's cyan, the garage lighting's amber),
-     line 4 closes on the brand red already used for CTAs/accents elsewhere. */
+     line 4 closes on --color-danger's red — kept distinct from line 3's amber and the new gold
+     brand accent, rather than following the accent to gold and losing that separation. */
   --hero-line-1: var(--color-text); /* white — ~18.4:1 on #0a0a0a */
   --hero-line-2: #22d3ee; /* cyan, matches hero.mp4's neon ring — ~11.6:1 on #0a0a0a */
   --hero-line-3: #ffb020; /* amber, matches hero.mp4's garage lighting — ~11.5:1 on #0a0a0a */
-  --hero-line-4: var(--color-accent-text); /* brand red — ~10.7:1 on #0a0a0a */
+  --hero-line-4: var(--color-danger); /* red — ~10.7:1 on #0a0a0a */
   --font-display: 'Anton', 'Inter', system-ui, sans-serif;
   --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --radius-sm: 6px;
@@ -432,7 +437,7 @@ button:disabled {
 
 .error-panel {
   background: var(--color-danger-bg);
-  border: 1px solid var(--color-accent);
+  border: 1px solid var(--color-danger);
   border-radius: var(--radius-md);
   padding: var(--space-3);
   display: flex;
@@ -443,7 +448,7 @@ button:disabled {
 }
 
 .field-errors {
-  color: var(--color-accent-text);
+  color: var(--color-danger);
   font-size: 0.9rem;
 }
 
