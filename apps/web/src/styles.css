@@ -31,6 +31,15 @@
      and it measures ~4.5–4.65:1; this variant is for labels/badges/errors, ~5.9:1 on surface. */
   --color-accent-text: #ff5566;
   --color-danger-bg: rgba(216, 60, 72, 0.14);
+  /* Hero headline: one solid color per sentence instead of blending into the video, so each
+     line just wins on contrast (all ~10:1+ against near-black, verified below) regardless of
+     what's playing behind it. Not arbitrary: line 1 is neutral white, lines 2-3 are drawn from
+     the hero video's own dominant colors (the neon ring's cyan, the garage lighting's amber),
+     line 4 closes on the brand red already used for CTAs/accents elsewhere. */
+  --hero-line-1: var(--color-text); /* white — ~18.4:1 on #0a0a0a */
+  --hero-line-2: #22d3ee; /* cyan, matches hero.mp4's neon ring — ~11.6:1 on #0a0a0a */
+  --hero-line-3: #ffb020; /* amber, matches hero.mp4's garage lighting — ~11.5:1 on #0a0a0a */
+  --hero-line-4: var(--color-accent-text); /* brand red — ~10.7:1 on #0a0a0a */
   --font-display: 'Space Grotesk', 'Inter', system-ui, sans-serif;
   --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --radius-sm: 6px;
@@ -235,24 +244,19 @@ main {
   max-width: 34ch;
 }
 
-/* mix-blend-mode: difference inverts against whatever the video is showing at each pixel
-   (white text over a dark frame reads white; over a bright/colorful frame it takes on the
-   frame's complementary color) — the headline visibly reacts to and blends with the video's
-   own colors as it plays, instead of sitting on top of it as a flat caption. mix-blend-mode
-   isn't inherited, so it's set on both the h1 and its .accent span, not just the parent.
-   .accent keeps a different base color (the brand red) than the rest of the headline (white)
-   so the accent word still reads as visually distinct — it blends from a different starting
-   hue rather than losing the accent hierarchy entirely. */
-.hero h1 {
-  font-size: clamp(2rem, 5vw, 3.25rem);
-  line-height: 1.08;
-  color: #fff;
-  mix-blend-mode: difference;
+/* Each sentence is its own block-level span with a fixed, solid color (--hero-line-1..4) rather
+   than one run of mix-blend-mode text — flat color that just wins on contrast, not one that
+   reacts to (and can be undermined by) whatever the video is doing underneath. */
+.hero-headline {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15em;
+  font-size: clamp(1.75rem, 4.5vw, 3rem);
+  line-height: 1.15;
 }
 
-.hero h1 .accent {
-  color: var(--color-accent);
-  mix-blend-mode: difference;
+.hero-line {
+  display: block;
 }
 
 .hero p {

@@ -21,6 +21,9 @@ function usePrefersReducedMotion(): boolean {
   return useMediaQuery('(prefers-reduced-motion: reduce)');
 }
 
+// One color per sentence via --hero-line-1..4 (styles.css), keyed by array index below.
+const HERO_LINES = ["Tell us what's wrong.", 'See the plan.', 'Approve the price.', 'Follow the repair.'];
+
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? 'http://127.0.0.1:3000/api/v1';
 
 const DEV_ACTORS = {
@@ -111,9 +114,12 @@ function Home({ api }: { api: ApiAdapter }) {
           <source src="/hero.mp4" type="video/mp4" />
         </video>
         <div className="hero-content">
-          <h1>
-            Tell us what&rsquo;s <span className="accent">wrong</span>. See the plan. Approve the price. Follow the
-            repair.
+          <h1 className="hero-headline">
+            {HERO_LINES.map((line, index) => (
+              <span key={line} className="hero-line" style={{ color: `var(--hero-line-${index + 1})` }}>
+                {line}
+              </span>
+            ))}
           </h1>
           <p>Every path below starts with your vehicle.</p>
         </div>
