@@ -756,6 +756,149 @@ button:disabled {
   color: var(--color-text-muted);
 }
 
+/* Tap Your Trouble intake wizard */
+.intake-step-indicator {
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0 0 var(--space-3);
+}
+
+.intake-step {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  display: grid;
+  gap: var(--space-3);
+  max-width: 560px;
+}
+
+.intake-step h2 {
+  font-size: 1.2rem;
+}
+
+.intake-step label {
+  display: grid;
+  gap: var(--space-1);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.intake-step textarea {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2);
+  font-size: 1rem;
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  text-transform: none;
+  font-weight: 400;
+  letter-spacing: normal;
+  resize: vertical;
+}
+
+.intake-vehicle-list {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.intake-vehicle-option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+  cursor: pointer;
+  text-transform: none;
+  font-weight: 400;
+  color: var(--color-text);
+  letter-spacing: normal;
+}
+
+.intake-chip-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.intake-chip {
+  background: var(--color-bg);
+  color: var(--color-text);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-full);
+  padding: var(--space-1) var(--space-3);
+  font-size: 0.85rem;
+  font-weight: 600;
+  min-height: auto;
+}
+
+.intake-chip.is-selected {
+  background: var(--color-accent);
+  color: var(--color-bg);
+  border-color: var(--color-accent);
+}
+
+.intake-nav {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: space-between;
+}
+
+.intake-photo-input {
+  display: block;
+  background: var(--color-bg);
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  text-align: center;
+  cursor: pointer;
+}
+
+.intake-photo-input input {
+  display: none;
+}
+
+.intake-photo-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+  gap: var(--space-2);
+  list-style: none;
+  padding: 0;
+}
+
+.intake-photo-list li {
+  position: relative;
+}
+
+.intake-photo-list img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  display: block;
+}
+
+.intake-photo-list button {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  min-height: auto;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  line-height: 1;
+  border-radius: 50%;
+}
+
 @media (max-width: 480px) {
   .app-header {
     flex-direction: column;
