@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import Fastify, { type FastifyReply, type FastifyRequest } from 'fastify';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
@@ -10,6 +11,7 @@ const app = Fastify({ logger: process.env.NODE_ENV !== 'test' });
 const database = process.env.MOCK_MODE === 'true' ? null : createDatabase();
 const vehicleRepository = database ? createVehicleRepository(database) : null;
 const serviceRequestRepository = database ? createServiceRequestRepository(database) : null;
+if (database) app.addHook('preHandler', async (request) => { const devId = request.headers['x-dev-user-id']; if (devId !== 'customer-demo' && devId !== 'mechanic-demo' && devId !== 'admin-demo') return; const email = `${devId}@local.test`; const rows = await database.query<{ id: string }>('SELECT id FROM users WHERE email = $1', [email]); if (rows[0]) request.headers['x-dev-user-id'] = rows[0].id; });
 await app.register(helmet);
 await app.register(cors, { origin: process.env.APP_ORIGIN ?? 'http://localhost:5173', credentials: true });
 const rid = (reply: FastifyReply) => String(reply.request.id);

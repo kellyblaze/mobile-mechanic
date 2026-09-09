@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { readdir, readFile } from 'node:fs/promises';
 import { createDatabase } from '../packages/database/src/client.js';
 
