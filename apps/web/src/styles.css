@@ -361,6 +361,140 @@ main {
   background: var(--color-accent-hover);
 }
 
+/* Themed hover/focus icon animations — each card gets its own motion instead of a generic
+   fade/scale, per "pictorial animation that grabs attention". Idle by default: no animation
+   is set until :hover/:focus-visible, and the site's existing global
+   prefers-reduced-motion rule (transition/animation: none !important on *) already covers
+   these without any extra media query here. */
+.entry-icon {
+  width: 40px;
+  height: 40px;
+  margin-bottom: var(--space-2);
+}
+
+.icon-wrench {
+  transform-origin: 60% 60%;
+}
+
+.entry-door:hover .icon-wrench,
+.entry-door:focus-visible .icon-wrench {
+  animation: wrench-wiggle 0.6s ease-in-out;
+}
+
+@keyframes wrench-wiggle {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  20% {
+    transform: rotate(-18deg);
+  }
+  40% {
+    transform: rotate(14deg);
+  }
+  60% {
+    transform: rotate(-10deg);
+  }
+  80% {
+    transform: rotate(6deg);
+  }
+}
+
+.icon-tire {
+  transform-origin: center;
+}
+
+.entry-door:hover .icon-tire,
+.entry-door:focus-visible .icon-tire {
+  animation: tire-spin 0.9s linear infinite;
+}
+
+@keyframes tire-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Spray gun stays still; five particles fan out from the nozzle and fade, staggered, so it
+   reads as continuous spray rather than one puff. transform-box: fill-box centers each dot's
+   own scale on itself rather than the whole <svg>'s origin. */
+.icon-spray .spray-dot {
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.entry-door:hover .spray-dot-a,
+.entry-door:focus-visible .spray-dot-a {
+  animation: spray-up 0.8s ease-out infinite;
+}
+
+.entry-door:hover .spray-dot-b,
+.entry-door:focus-visible .spray-dot-b {
+  animation: spray-mid 0.8s ease-out infinite;
+  animation-delay: 0.1s;
+}
+
+.entry-door:hover .spray-dot-c,
+.entry-door:focus-visible .spray-dot-c {
+  animation: spray-down 0.8s ease-out infinite;
+  animation-delay: 0.2s;
+}
+
+.entry-door:hover .spray-dot-d,
+.entry-door:focus-visible .spray-dot-d {
+  animation: spray-up 0.8s ease-out infinite;
+  animation-delay: 0.35s;
+}
+
+.entry-door:hover .spray-dot-e,
+.entry-door:focus-visible .spray-dot-e {
+  animation: spray-down 0.8s ease-out infinite;
+  animation-delay: 0.45s;
+}
+
+@keyframes spray-up {
+  0% {
+    transform: translate(0, 0) scale(0.5);
+    opacity: 0;
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(9px, -5px) scale(1.2);
+    opacity: 0;
+  }
+}
+
+@keyframes spray-mid {
+  0% {
+    transform: translate(0, 0) scale(0.5);
+    opacity: 0;
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(10px, 0) scale(1.2);
+    opacity: 0;
+  }
+}
+
+@keyframes spray-down {
+  0% {
+    transform: translate(0, 0) scale(0.5);
+    opacity: 0;
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(9px, 5px) scale(1.2);
+    opacity: 0;
+  }
+}
+
 .service-list,
 .vehicle-list {
   list-style: none;

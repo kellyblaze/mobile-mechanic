@@ -78,15 +78,75 @@ function DevSessionBar({ actorKey, onChange }: { actorKey: ActorKey; onChange: (
 
 const MOBILE_VIDEO_QUERY = '(max-width: 640px)';
 
+// Decorative, purely illustrative — aria-hidden. Each icon carries its own themed hover/focus
+// animation defined in styles.css (.entry-door:hover/:focus-visible .icon-*), not a generic
+// fade/scale shared across all three.
+function WrenchIcon() {
+  return (
+    <svg
+      className="entry-icon icon-wrench"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      fill="none"
+      stroke="var(--color-accent)"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94z" />
+    </svg>
+  );
+}
+
+function TireIcon() {
+  return (
+    <svg className="entry-icon icon-tire" viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" fill="none" stroke="var(--color-accent)" strokeWidth="2" />
+      <circle cx="12" cy="12" r="3" fill="var(--color-accent)" />
+      <line x1="12" y1="3" x2="12" y2="7.5" stroke="var(--color-accent)" strokeWidth="2" strokeLinecap="round" />
+      <line x1="12" y1="16.5" x2="12" y2="21" stroke="var(--color-accent)" strokeWidth="2" strokeLinecap="round" />
+      <line x1="3" y1="12" x2="7.5" y2="12" stroke="var(--color-accent)" strokeWidth="2" strokeLinecap="round" />
+      <line x1="16.5" y1="12" x2="21" y2="12" stroke="var(--color-accent)" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+// A paint sprayer, not a roller — a roller isn't how a car actually gets painted. The nozzle
+// emits five staggered "spray-dot" particles (see styles.css) that fan out and fade, rather than
+// the gun itself moving, so it reads as spraying gold paint rather than just wobbling.
+function SprayIcon() {
+  return (
+    <svg className="entry-icon icon-spray" viewBox="0 0 32 24" aria-hidden="true">
+      <rect x="4" y="9" width="13" height="5" rx="1.5" fill="var(--color-accent)" />
+      <rect x="17" y="10.3" width="3" height="2.4" fill="var(--color-accent)" />
+      <path d="M8 14 L8 21 L11.5 21 L11.5 14 Z" fill="var(--color-accent)" />
+      <path d="M11.5 15 Q15 17 11.5 19" stroke="var(--color-accent)" strokeWidth="1.4" fill="none" strokeLinecap="round" />
+      <circle className="spray-dot spray-dot-a" cx="21" cy="9" r="1" fill="var(--color-accent)" />
+      <circle className="spray-dot spray-dot-b" cx="21" cy="11.5" r="1" fill="var(--color-accent)" />
+      <circle className="spray-dot spray-dot-c" cx="21" cy="14" r="1" fill="var(--color-accent)" />
+      <circle className="spray-dot spray-dot-d" cx="22" cy="10.2" r="0.8" fill="var(--color-accent)" />
+      <circle className="spray-dot spray-dot-e" cx="22" cy="12.8" r="0.8" fill="var(--color-accent)" />
+    </svg>
+  );
+}
+
 function Home({ api }: { api: ApiAdapter }) {
   const catalog = useQuery({ queryKey: ['service-catalog'], queryFn: () => api.listServiceCatalog() });
   const prefersReducedMotion = usePrefersReducedMotion();
   const isMobileViewport = useMediaQuery(MOBILE_VIDEO_QUERY);
 
   const entryDoors = [
-    { label: "Something's wrong", description: 'Tell us the symptom and get routed to a diagnostic or repair.' },
-    { label: 'Tires & maintenance', description: 'Book tire replacement or routine service.' },
-    { label: 'Bodywork & paint', description: 'Start a body/paint consultation.' }
+    {
+      label: "Something's wrong",
+      description: 'Tell us the symptom and get routed to a diagnostic or repair.',
+      icon: <WrenchIcon />
+    },
+    {
+      label: 'Tires & maintenance',
+      description: 'Book tire replacement or routine service.',
+      icon: <TireIcon />
+    },
+    { label: 'Bodywork & paint', description: 'Start a body/paint consultation.', icon: <SprayIcon /> }
   ];
 
   return (
@@ -137,6 +197,7 @@ function Home({ api }: { api: ApiAdapter }) {
       <div className="entry-doors">
         {entryDoors.map((door) => (
           <Link key={door.label} to="/vehicles" className="entry-door">
+            {door.icon}
             <h2>{door.label}</h2>
             <p>{door.description}</p>
             {/* The whole card is the <Link>, so this is a styled affordance (span), not a
