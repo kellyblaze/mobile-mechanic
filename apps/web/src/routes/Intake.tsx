@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import type { ApiAdapter } from '../lib/apiAdapter.js';
 import type { ActorKey } from '../lib/devActors.js';
 import { useInViewOnce } from '../hooks.js';
@@ -72,6 +72,7 @@ export function Intake({ api, actorKey }: { api: ApiAdapter; actorKey: ActorKey 
   };
 
   const selectedVehicle = vehicles.data?.data.find((vehicle) => vehicle.id === vehicleId);
+  const submitRequest = useMutation({ mutationFn: () => api.createServiceRequest({ vehicleId, category: category ?? 'something-wrong', symptoms, notes: notes.trim() || undefined }), onSuccess: () => setStep(5) });
 
   return (
     <section aria-labelledby="intake-heading">
@@ -208,14 +209,11 @@ export function Intake({ api, actorKey }: { api: ApiAdapter; actorKey: ActorKey 
               <span>{photos.length}</span>
             </li>
           </ul>
-          {/* Genuinely disabled — there is no POST /service-requests to submit to yet. */}
-          <button type="button" disabled title="Submitting isn't live yet — see CR-005">
-            Submit request
+          <button type="button" disabled={submitRequest.isPending || !vehicleId} onClick={() => submitRequest.mutate()}>
+            {submitRequest.isPending ? 'Submitting…' : 'Submit request'}
           </button>
-          <p className="pending-note">
-            Request submission isn&rsquo;t published in the API contract yet (<code>POST /service-requests</code> —
-            see docs/change-requests/CR-005.md). Your selections above aren&rsquo;t sent anywhere yet.
-          </p>
+          {submitRequest.isError && <ErrorPanel error={submitRequest.error} onRetry={() => submitRequest.mutate()} />}
+          {submitRequest.isSuccess && <p role="status">Request submitted. We’ll review the details and follow up with next steps.</p>}
           <div className="intake-nav">
             <button type="button" onClick={() => setStep(3)}>
               Back

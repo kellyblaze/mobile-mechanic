@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Mobile Mechanic API
-  version: 1.0.0
+  version: 1.1.0
   description: Contract v1.0.0. Development adapters are explicitly marked in responses.
 servers:
   - url: http://127.0.0.1:3000/api/v1
@@ -14,8 +14,21 @@ paths:
   /vehicles:
     get: {operationId: listVehicles, tags: [vehicles], security: [{devSession: []}], responses: {'200': {description: Vehicles}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}}}
     post: {operationId: createVehicle, tags: [vehicles], security: [{devSession: []}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/VehicleInput'}}}}, responses: {'201': {description: Created}, '422': {$ref: '#/components/responses/Validation'}}}
+  /vehicles/{id}/history:
+    get: {operationId: getVehicleHistory, tags: [vehicles], security: [{devSession: []}], parameters: [{in: path, name: id, required: true, schema: {type: string}}], responses: {'200': {description: Vehicle Passport history}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}}}
+  /service-requests:
+    post: {operationId: createServiceRequest, tags: [vehicles], security: [{devSession: []}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ServiceRequestInput'}}}}, responses: {'201': {description: Created}, '422': {$ref: '#/components/responses/Validation'}}}
+  /uploads:
+    post: {operationId: initiateUpload, tags: [vehicles], security: [{devSession: []}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/UploadInput'}}}}, responses: {'201': {description: Private upload reference}, '422': {$ref: '#/components/responses/Validation'}}}
+  /quotes/{id}:
+    get: {operationId: getQuote, tags: [quotes], security: [{devSession: []}], parameters: [{in: path, name: id, required: true, schema: {type: string}}], responses: {'200': {description: Quote}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}}}
   /jobs/{id}:
     get: {operationId: getJob, tags: [jobs], security: [{devSession: []}], parameters: [{in: path, name: id, required: true, schema: {type: string}}], responses: {'200': {description: Repair Room job}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}}}
+  /jobs/{id}/findings:
+    get: {operationId: listFindings, tags: [jobs], security: [{devSession: []}], parameters: [{in: path, name: id, required: true, schema: {type: string}}], responses: {'200': {description: Findings}}}
+  /jobs/{id}/messages:
+    get: {operationId: listMessages, tags: [jobs], security: [{devSession: []}], parameters: [{in: path, name: id, required: true, schema: {type: string}}], responses: {'200': {description: Messages}}}
+    post: {operationId: sendMessage, tags: [jobs], security: [{devSession: []}], parameters: [{in: path, name: id, required: true, schema: {type: string}}, {in: header, name: Idempotency-Key, required: true, schema: {type: string, minLength: 8}}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/MessageInput'}}}}, responses: {'201': {description: Message}, '409': {$ref: '#/components/responses/Conflict'}}}
   /quotes/{id}/accept:
     post: {operationId: acceptQuote, tags: [quotes], security: [{devSession: []}], parameters: [{in: path, name: id, required: true, schema: {type: string}}, {in: header, name: Idempotency-Key, required: true, schema: {type: string, minLength: 8}}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/VersionedCommand'}}}}, responses: {'200': {description: Accepted quote}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/Validation'}}}
 components:
@@ -25,6 +38,9 @@ components:
     Session: {type: object, required: [user, capabilities], properties: {user: {type: object, properties: {id: {type: string}, role: {type: string, enum: [customer, mechanic, admin]}}}, capabilities: {type: array, items: {type: string}}}}
     VehicleInput: {type: object, required: [year, make, model], properties: {year: {type: integer}, make: {type: string}, model: {type: string}, mileage: {type: integer, minimum: 0}, vin: {type: string, minLength: 17, maxLength: 17}}}
     VersionedCommand: {type: object, required: [expectedVersion, idempotencyKey], properties: {expectedVersion: {type: integer, minimum: 1}, idempotencyKey: {type: string, minLength: 8}}}
+    ServiceRequestInput: {type: object, required: [vehicleId, category, symptoms], properties: {vehicleId: {type: string}, category: {type: string}, symptoms: {type: array, items: {type: string}}, notes: {type: string}, attachmentIds: {type: array, items: {type: string}}}}
+    UploadInput: {type: object, required: [fileName, contentType, sizeBytes], properties: {fileName: {type: string}, contentType: {type: string, enum: [image/jpeg, image/png, image/webp, video/mp4]}, sizeBytes: {type: integer, maximum: 25000000}}}
+    MessageInput: {type: object, required: [body], properties: {body: {type: string, minLength: 1, maxLength: 4000}}}
     ServiceList: {type: object, properties: {data: {type: array, items: {type: object}}, meta: {type: object}}}
   responses:
     Unauthorized: {description: Unauthenticated, content: {application/json: {schema: {$ref: '#/components/schemas/ApiError'}}}}

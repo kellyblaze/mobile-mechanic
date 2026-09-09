@@ -13,7 +13,7 @@ export type DevActor = { userId: string; role: 'customer' | 'mechanic' | 'admin'
 
 export type Service = { id: string; name: string; delivery: string[]; pricingPath: string };
 export type Vehicle = { id: string; customerId?: string; year: number; make: string; model: string; mileage?: number; vin?: string };
-export type Job = { id: string; customerId?: string; mechanicId?: string; status: string; version: number; allowedActions: string[] };
+export type Job = { id: string; customerId?: string; mechanicId?: string; vehicleId?: string; quoteId?: string; status: string; version: number; allowedActions: string[] };
 export type Quote = { id: string; customerId?: string; status: string; version: number; currency: string; totalMinor: number; lines: { description: string; amountMinor: number }[] };
 export type Session = { user: { id: string; role: string }; capabilities: string[] };
 
@@ -86,6 +86,12 @@ export function createApiAdapter(options: ApiAdapterOptions) {
     createVehicle: (input: { year: number; make: string; model: string; mileage?: number; vin?: string }) =>
       request<{ data: Vehicle }>('/vehicles', { method: 'POST', body: input }),
     getJob: (id: string) => request<{ data: Job }>(`/jobs/${id}`),
+    getVehicleHistory: (id: string) => request<{ data: Record<string, unknown>[] }>(`/vehicles/${id}/history`),
+    createServiceRequest: (input: { vehicleId: string; category: string; symptoms: string[]; notes?: string; attachmentIds?: string[] }) => request<{ data: Record<string, unknown> }>('/service-requests', { method: 'POST', body: input }),
+    initiateUpload: (input: { fileName: string; contentType: string; sizeBytes: number }) => request<{ data: Record<string, unknown> }>('/uploads', { method: 'POST', body: input }),
+    listFindings: (id: string) => request<{ data: Record<string, unknown>[] }>(`/jobs/${id}/findings`),
+    listMessages: (id: string) => request<{ data: Record<string, unknown>[] }>(`/jobs/${id}/messages`),
+    sendMessage: (id: string, body: string) => request<{ data: Record<string, unknown> }>(`/jobs/${id}/messages`, { method: 'POST', body: { body }, extraHeaders: { 'idempotency-key': crypto.randomUUID() } }),
     // CR-001 stopgap — see file header.
     acceptQuote: (id: string, command: { expectedVersion: number; idempotencyKey: string }) =>
       request<{ data: Quote }>(`/quotes/${id}/accept`, {

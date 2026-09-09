@@ -1,6 +1,9 @@
-// Generated from openapi.yaml. Do not edit.
-export const CONTRACT_VERSION = '1.0.0';
+// Generated contract client. Do not edit manually; regenerate after OpenAPI changes.
+export const CONTRACT_VERSION = '1.1.0';
 export type ApiError = { error: { code: string; message: string; fieldErrors?: Record<string, string[]>; requestId: string } };
-export type ApiClientOptions = { baseUrl: string; fetchImpl?: typeof fetch };
-export function createApiClient(options: ApiClientOptions) { const f = options.fetchImpl ?? fetch; return { async get<T>(path: string): Promise<T> { const r = await f(options.baseUrl + path, { credentials: 'include' }); if (!r.ok) throw await r.json(); return r.json() as Promise<T>; } }; }
-// Source contract bytes: 4079
+export type ApiClientOptions = { baseUrl: string; fetchImpl?: typeof fetch; headers?: () => Record<string, string> };
+export function createApiClient(options: ApiClientOptions) {
+  const f = options.fetchImpl ?? fetch;
+  async function request<T>(path: string, init: RequestInit = {}): Promise<T> { const response = await f(options.baseUrl + path, { credentials: 'include', ...init, headers: { 'content-type': 'application/json', ...(options.headers?.() ?? {}), ...(init.headers ?? {}) } }); const payload = await response.json().catch(() => null); if (!response.ok) throw payload as ApiError; return payload as T; }
+  return { getSession: () => request('/session'), listServiceCatalog: () => request('/service-catalog'), listVehicles: () => request('/vehicles'), createVehicle: (input: unknown) => request('/vehicles', { method: 'POST', body: JSON.stringify(input) }), getVehicleHistory: (id: string) => request(`/vehicles/${id}/history`), createServiceRequest: (input: unknown) => request('/service-requests', { method: 'POST', body: JSON.stringify(input) }), initiateUpload: (input: unknown) => request('/uploads', { method: 'POST', body: JSON.stringify(input) }), getQuote: (id: string) => request(`/quotes/${id}`), getJob: (id: string) => request(`/jobs/${id}`), listFindings: (id: string) => request(`/jobs/${id}/findings`), listMessages: (id: string) => request(`/jobs/${id}/messages`), sendMessage: (id: string, input: unknown, key: string) => request(`/jobs/${id}/messages`, { method: 'POST', body: JSON.stringify(input), headers: { 'Idempotency-Key': key } }), acceptQuote: (id: string, input: unknown, key: string) => request(`/quotes/${id}/accept`, { method: 'POST', body: JSON.stringify(input), headers: { 'Idempotency-Key': key } }) };
+}

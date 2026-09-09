@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ApiAdapter } from '../lib/apiAdapter.js';
@@ -9,6 +10,10 @@ export function RepairRoom({ api, actorKey }: { api: ApiAdapter; actorKey: Actor
   const { id = 'job-1' } = useParams();
   const queryClient = useQueryClient();
   const job = useQuery({ queryKey: ['job', id, actorKey], queryFn: () => api.getJob(id) });
+  const findings = useQuery({ queryKey: ['findings', id, actorKey], queryFn: () => api.listFindings(id) });
+  const messages = useQuery({ queryKey: ['messages', id, actorKey], queryFn: () => api.listMessages(id) });
+  const [message, setMessage] = useState('');
+  const sendMessage = useMutation({ mutationFn: () => api.sendMessage(id, message), onSuccess: () => { setMessage(''); void queryClient.invalidateQueries({ queryKey: ['messages', id, actorKey] }); } });
   // Called before the early returns below (loading/error) so it runs on every render, same as
   // every other hook — conditionally calling hooks after an early return breaks React's rules.
   const { ref: headingRef, isInView: headingInView } = useInViewOnce<HTMLHeadingElement>();
@@ -59,28 +64,23 @@ export function RepairRoom({ api, actorKey }: { api: ApiAdapter; actorKey: Actor
 
       <section aria-labelledby="findings-heading">
         <h2 id="findings-heading">Inspection findings</h2>
-        <p className="pending-note">
-          Findings aren&rsquo;t published in the API contract yet (<code>GET /jobs/{'{id}'}/findings</code> — see{' '}
-          docs/change-requests/CR-004.md). Once available, each finding will show a photo, the mechanic&rsquo;s
-          note, and a Recommended now / Plan for later / Monitor category. No findings are shown here in the
-          meantime — this is a real empty state, not fabricated data standing in for the feature.
-        </p>
+          {findings.isPending && <p role="status">Loading findings…</p>}
+          {findings.isError && <ErrorPanel error={findings.error} onRetry={() => findings.refetch()} />}
+          {findings.data?.data.length === 0 && <p className="pending-note">No inspection findings have been recorded.</p>}
+          {findings.data?.data.map((finding, index) => <p key={String(finding.id ?? index)}>{String(finding.note ?? 'Finding recorded')}</p>)}
       </section>
 
       <section aria-labelledby="messages-heading">
         <h2 id="messages-heading">Messages</h2>
-        <p className="message-thread-empty">No messages yet.</p>
-        {/* Disabled, not just visually — there is no POST /jobs/{id}/messages to send to yet.
-            This previews the coming layout; it intentionally cannot submit anything. */}
+        {messages.isPending && <p role="status">Loading messages…</p>}
+        {messages.data?.data.length === 0 && <p className="message-thread-empty">No messages yet.</p>}
+        {messages.data?.data.map((item, index) => <p key={String(item.id ?? index)}>{String(item.body ?? '')}</p>)}
         <form className="message-composer" onSubmit={(event) => event.preventDefault()}>
           <label htmlFor="message-input" className="visually-hidden">Message</label>
-          <textarea id="message-input" rows={2} disabled placeholder="Messaging isn't live yet — see CR-004." />
-          <button type="submit" disabled>Send</button>
+          <textarea id="message-input" rows={2} value={message} onChange={(event) => setMessage(event.target.value)} disabled={sendMessage.isPending} placeholder="Message your mechanic" />
+          <button type="button" disabled={!message.trim() || sendMessage.isPending} onClick={() => sendMessage.mutate()}>Send</button>
         </form>
-        <p className="pending-note">
-          Sending and receiving messages isn&rsquo;t published in the API contract yet (
-          <code>GET</code>/<code>POST /jobs/{'{id}'}/messages</code> — see docs/change-requests/CR-004.md).
-        </p>
+        {sendMessage.isError && <ErrorPanel error={sendMessage.error} onRetry={() => sendMessage.mutate()} />}
       </section>
 
       <p className="pending-note">
