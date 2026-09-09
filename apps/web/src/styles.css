@@ -205,20 +205,21 @@ main {
    the shadow sits right behind the headline/paragraph and fades out to the untouched video
    toward the top-right. 0% 100% anchors to that corner regardless of viewport width — a
    percentage-based position would drift the shadow away from the text on wide screens.
-   Near-opaque through the first half (was 0.85/0.55) so the .hero h1's mix-blend-mode:
-   difference reads against near-black right behind the text — difference against true black
-   leaves the text's own color essentially unchanged, which is what makes it legible — before
-   fading out to the untouched video same as before. */
+   Solid black held out to 45% (not fading from 0%) and cut short at 90% (not 100%) so the
+   transition reads as a deliberate edge rather than a gradual tint that can disappear into
+   whatever the video itself happens to be doing at a given frame — the source video has plenty
+   of naturally dark moments where a subtler gradient was indistinguishable from ambient footage
+   darkness. */
 .hero::before {
   content: '';
   position: absolute;
   inset: 0;
   background: radial-gradient(
-    70% 85% at 0% 100%,
-    rgba(10, 10, 10, 0.97) 0%,
-    rgba(10, 10, 10, 0.85) 40%,
-    rgba(10, 10, 10, 0.45) 70%,
-    rgba(10, 10, 10, 0) 100%
+    75% 90% at 0% 100%,
+    rgba(10, 10, 10, 1) 0%,
+    rgba(10, 10, 10, 1) 45%,
+    rgba(10, 10, 10, 0.5) 70%,
+    rgba(10, 10, 10, 0) 90%
   );
 }
 
