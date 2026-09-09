@@ -210,16 +210,22 @@ main {
    whatever the video itself happens to be doing at a given frame — the source video has plenty
    of naturally dark moments where a subtler gradient was indistinguishable from ambient footage
    darkness. */
+/* Pushed further out than the first pass (45%/70%/90% -> 60%/80%/100% on a bigger 95%/100%
+   ellipse): the video's neon ring sits right around the hero's horizontal midpoint, which is
+   also roughly where .hero-content's text (max-width: 34ch) ends — the old fade zone landed
+   exactly on top of the ring, and the ring is bright enough to punch through even a 50%-opacity
+   black overlay. Solid black now reliably reaches past the text column before any fade starts,
+   confirmed against the ring's actual on-screen position, not just against a plain dark frame. */
 .hero::before {
   content: '';
   position: absolute;
   inset: 0;
   background: radial-gradient(
-    75% 90% at 0% 100%,
+    95% 100% at 0% 100%,
     rgba(10, 10, 10, 1) 0%,
-    rgba(10, 10, 10, 1) 45%,
-    rgba(10, 10, 10, 0.5) 70%,
-    rgba(10, 10, 10, 0) 90%
+    rgba(10, 10, 10, 1) 60%,
+    rgba(10, 10, 10, 0.6) 80%,
+    rgba(10, 10, 10, 0) 100%
   );
 }
 
