@@ -661,6 +661,37 @@ form input:focus-visible {
   border-color: var(--color-accent);
 }
 
+.message-thread-empty {
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  margin: var(--space-2) 0;
+}
+
+/* Real layout preview, not a functional composer yet — the textarea/button are disabled in
+   App.tsx (no POST /jobs/{id}/messages exists), not just styled to look inert. */
+.message-composer {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-start;
+}
+
+.message-composer textarea {
+  flex: 1;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2);
+  font-size: 1rem;
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  resize: vertical;
+}
+
+.message-composer textarea:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 /* Primary CTA: solid red pill — the reference uses red only as a small, deliberate accent
    (the circular play button, one headline word) rather than large red fields, so this stays a
    compact pill, not a full-width block. */

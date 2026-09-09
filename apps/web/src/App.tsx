@@ -516,9 +516,35 @@ function RepairRoom({ api, actorKey }: { api: ApiAdapter; actorKey: ActorKey }) 
         <p role="status">Quote accepted &mdash; total ${(acceptQuote.data.data.totalMinor / 100).toFixed(2)}.</p>
       )}
 
+      <section aria-labelledby="findings-heading">
+        <h2 id="findings-heading">Inspection findings</h2>
+        <p className="pending-note">
+          Findings aren&rsquo;t published in the API contract yet (<code>GET /jobs/{'{id}'}/findings</code> — see{' '}
+          docs/change-requests/CR-004.md). Once available, each finding will show a photo, the mechanic&rsquo;s
+          note, and a Recommended now / Plan for later / Monitor category. No findings are shown here in the
+          meantime — this is a real empty state, not fabricated data standing in for the feature.
+        </p>
+      </section>
+
+      <section aria-labelledby="messages-heading">
+        <h2 id="messages-heading">Messages</h2>
+        <p className="message-thread-empty">No messages yet.</p>
+        {/* Disabled, not just visually — there is no POST /jobs/{id}/messages to send to yet.
+            This previews the coming layout; it intentionally cannot submit anything. */}
+        <form className="message-composer" onSubmit={(event) => event.preventDefault()}>
+          <label htmlFor="message-input" className="visually-hidden">Message</label>
+          <textarea id="message-input" rows={2} disabled placeholder="Messaging isn't live yet — see CR-004." />
+          <button type="submit" disabled>Send</button>
+        </form>
+        <p className="pending-note">
+          Sending and receiving messages isn&rsquo;t published in the API contract yet (
+          <code>GET</code>/<code>POST /jobs/{'{id}'}/messages</code> — see docs/change-requests/CR-004.md).
+        </p>
+      </section>
+
       <p className="pending-note">
-        Messages, inspection findings, change orders, completion reports, and invoices are not yet published in the
-        API contract. Those sections will appear here once their endpoints ship (see docs/integration-status.md).
+        Change orders, completion reports, and invoices are not yet published in the API contract. Those sections
+        will appear here once their endpoints ship (see docs/integration-status.md).
       </p>
     </section>
   );
