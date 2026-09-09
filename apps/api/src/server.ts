@@ -2,7 +2,10 @@ import 'dotenv/config';
 import Fastify, { type FastifyReply, type FastifyRequest } from 'fastify';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
+import rawBody from 'fastify-raw-body';
+import Stripe from 'stripe';
 import { z } from 'zod';
+import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { fixtureState, type Role } from '../../../packages/domain/src/state.js';
 import { createDatabase } from '../../../packages/database/src/client.js';
 import { createServiceRequestRepository, createVehicleRepository } from '../../../packages/database/src/repositories.js';
@@ -11,9 +14,11 @@ const app = Fastify({ logger: process.env.NODE_ENV !== 'test' });
 const database = process.env.MOCK_MODE === 'true' ? null : createDatabase();
 const vehicleRepository = database ? createVehicleRepository(database) : null;
 const serviceRequestRepository = database ? createServiceRequestRepository(database) : null;
-if (database) app.addHook('preHandler', async (request) => { const devId = request.headers['x-dev-user-id']; if (devId !== 'customer-demo' && devId !== 'mechanic-demo' && devId !== 'admin-demo') return; const email = `${devId}@local.test`; const rows = await database.query<{ id: string }>('SELECT id FROM users WHERE email = $1', [email]); if (rows[0]) request.headers['x-dev-user-id'] = rows[0].id; });
+const jwks = process.env.AUTH_JWKS_URL ? createRemoteJWKSet(new URL(process.env.AUTH_JWKS_URL)) : null;
+if (database) app.addHook('preHandler', async (request, reply) => { if (process.env.AUTH_MODE === 'managed') { const authHeader = request.headers.authorization; if (!jwks || !authHeader?.startsWith('Bearer ')) return reply.code(401).send({ error: { code: 'UNAUTHENTICATED', message: 'A valid Supabase session is required.', requestId: String(request.id) } }); try { const verified = await jwtVerify(authHeader.slice(7), jwks, { issuer: process.env.AUTH_ISSUER, audience: process.env.AUTH_AUDIENCE ?? 'authenticated' }); const rows = await database.query<{ id: string; role: Role }>('SELECT u.id, m.role FROM users u JOIN memberships m ON m.user_id = u.id WHERE u.id = $1 ORDER BY CASE m.role WHEN \'admin\' THEN 1 WHEN \'mechanic\' THEN 2 ELSE 3 END LIMIT 1', [verified.payload.sub]); if (!rows[0]) return reply.code(403).send({ error: { code: 'FORBIDDEN', message: 'No business membership exists for this account.', requestId: String(request.id) } }); request.headers['x-dev-user-id'] = rows[0].id; request.headers['x-dev-role'] = rows[0].role; } catch { return reply.code(401).send({ error: { code: 'UNAUTHENTICATED', message: 'The Supabase session is invalid or expired.', requestId: String(request.id) } }); } } else { const devId = request.headers['x-dev-user-id']; if (devId !== 'customer-demo' && devId !== 'mechanic-demo' && devId !== 'admin-demo') return; const email = `${devId}@local.test`; const rows = await database.query<{ id: string }>('SELECT id FROM users WHERE email = $1', [email]); if (rows[0]) request.headers['x-dev-user-id'] = rows[0].id; } });
 await app.register(helmet);
 await app.register(cors, { origin: process.env.APP_ORIGIN ?? 'http://localhost:5173', credentials: true });
+await app.register(rawBody, { field: 'rawBody', global: false, encoding: 'utf8', runFirst: true, routes: ['/api/v1/webhooks/stripe'] });
 const rid = (reply: FastifyReply) => String(reply.request.id);
 function fail(reply: FastifyReply, status: number, code: string, message: string, fieldErrors?: Record<string, string[]>) { return reply.code(status).send({ error: { code, message, ...(fieldErrors ? { fieldErrors } : {}), requestId: rid(reply) } }); }
 type Actor = { id: string; role: Role };
@@ -22,6 +27,16 @@ function auth(request: FastifyRequest, reply: FastifyReply): Actor | null { cons
 function jobFor(request: FastifyRequest, reply: FastifyReply, a: Actor) { const job = fixtureState.jobs.find((j) => j.id === (request.params as { id: string }).id); if (!job) { fail(reply, 404, 'NOT_FOUND', 'Job not found.'); return null; } if ((a.role === 'customer' && job.customerId !== a.id) || (a.role === 'mechanic' && job.mechanicId !== a.id)) { fail(reply, 403, 'FORBIDDEN', 'You are not allowed to access this job.'); return null; } return job; }
 
 app.get('/health', async () => ({ status: 'ok', contractVersion: '1.1.0', mockMode: process.env.MOCK_MODE === 'true', persistence: database ? 'postgres' : 'fixture' }));
+app.post('/api/v1/webhooks/stripe', { config: { rawBody: true } }, async (request, reply) => {
+  if (!database || !process.env.STRIPE_SECRET_KEY || !process.env.STRIPE_WEBHOOK_SECRET || process.env.STRIPE_WEBHOOK_SECRET.includes('<')) return fail(reply, 503, 'PAYMENTS_UNAVAILABLE', 'Stripe webhook verification is not configured.');
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+  let event: Stripe.Event;
+  try { event = stripe.webhooks.constructEvent((request as FastifyRequest & { rawBody: string }).rawBody, request.headers['stripe-signature'] ?? '', process.env.STRIPE_WEBHOOK_SECRET); } catch { return fail(reply, 400, 'INVALID_WEBHOOK', 'Stripe webhook signature verification failed.'); }
+  const inserted = await database.query<{ event_id: string }>('INSERT INTO payment_webhook_events (provider, event_id, payload, processed_at) VALUES (\'stripe\',$1,$2,now()) ON CONFLICT (provider,event_id) DO NOTHING RETURNING event_id', [event.id, JSON.stringify(event)]);
+  if (!inserted.length) return { received: true, duplicate: true };
+  if (event.type === 'payment_intent.succeeded' || event.type === 'payment_intent.payment_failed') { const intent = event.data.object as Stripe.PaymentIntent; await database.query('UPDATE payment_attempts SET status = $1, provider_reference = $2 WHERE provider = \'stripe\' AND (provider_reference = $2 OR idempotency_key = $3)', [event.type.endsWith('succeeded') ? 'succeeded' : 'failed', intent.id, intent.metadata?.idempotencyKey ?? '']); }
+  return { received: true };
+});
 app.get('/api/v1/session', async (request, reply) => { const a = auth(request, reply); if (!a) return; return { user: a, capabilities: a.role === 'admin' ? ['quotes:write', 'jobs:write', 'catalog:write'] : a.role === 'mechanic' ? ['jobs:read', 'jobs:write', 'messages:write'] : ['vehicles:read', 'requests:write', 'quotes:accept'] }; });
 app.get('/api/v1/service-catalog', async () => ({ data: fixtureState.services, meta: { source: process.env.MOCK_MODE === 'true' ? 'fixture' : 'development-adapter' } }));
 app.get('/api/v1/vehicles', async (request, reply) => { const a = auth(request, reply); if (!a) return; if (a.role !== 'customer') return fail(reply, 403, 'FORBIDDEN', 'Only customers can access household vehicles.'); if (vehicleRepository) return { data: await vehicleRepository.listForCustomer(a.id) }; return { data: fixtureState.vehicles.filter((v) => v.customerId === a.id) }; });
