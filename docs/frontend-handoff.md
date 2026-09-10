@@ -3,7 +3,7 @@
 Repository: E:\Projects\Mobile Mechanic
 Branch: feature/issue-2-backend-completion
 Backend handoff commit: 90e07833f043a7f7167672b0d64039d48cb04a51
-Contract version: 1.2.0
+Contract version: 1.3.0
 Canonical contract: packages/contracts/openapi.yaml
 Generated client: packages/contracts/generated/client.ts
 
@@ -51,6 +51,7 @@ Use the generated client through one frontend adapter.
 - Vehicles: GET/POST /vehicles, GET /vehicles/{id}/history
 - Intake/uploads: POST /service-requests, POST /uploads
 - Quotes: GET /quotes/{id}, POST /quotes/{id}/accept, POST /admin/service-requests/{id}/quotes
+- Account provisioning: POST /admin/memberships (admin only; links an existing Supabase Auth user by email)
 - Repair Room: GET/POST /jobs/{id}/findings, GET/POST /jobs/{id}/messages, GET /jobs/{id}
 - Jobs: GET /admin/jobs, GET /mechanic/jobs, POST /jobs/{id}/transitions, POST /jobs/{id}/completion-report
 - Scheduling: GET /availability, POST /booking-holds
