@@ -186,4 +186,37 @@ describe('createApiAdapter', () => {
       lines: [{ description: 'Diagnostic appointment', amountMinor: 9900 }]
     });
   });
+
+  it('lists admin service requests with an optional status filter', async () => {
+    const fetchImpl = mockFetch(200, { data: [] });
+    const api = createApiAdapter({ baseUrl: 'http://api.test', actor: { userId: 'admin-demo', role: 'admin' }, fetchImpl });
+
+    await api.listAdminServiceRequests('submitted');
+
+    const call = (fetchImpl as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe('http://api.test/admin/service-requests?status=submitted');
+  });
+
+  it('omits the status query param when listing admin service requests without a filter', async () => {
+    const fetchImpl = mockFetch(200, { data: [] });
+    const api = createApiAdapter({ baseUrl: 'http://api.test', actor: { userId: 'admin-demo', role: 'admin' }, fetchImpl });
+
+    await api.listAdminServiceRequests();
+
+    const call = (fetchImpl as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe('http://api.test/admin/service-requests');
+  });
+
+  it('provisions a membership by email and role', async () => {
+    const fetchImpl = mockFetch(201, { data: { userId: 'user-1', businessId: 'biz-1', role: 'customer', email: 'a@example.com' } });
+    const api = createApiAdapter({ baseUrl: 'http://api.test', actor: { userId: 'admin-demo', role: 'admin' }, fetchImpl });
+
+    await api.provisionMembership({ email: 'a@example.com', role: 'customer' });
+
+    const call = (fetchImpl as ReturnType<typeof vi.fn>).mock.calls[0];
+    const [url, init] = call as [string, { method: string; body: string }];
+    expect(url).toBe('http://api.test/admin/memberships');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body)).toEqual({ email: 'a@example.com', role: 'customer' });
+  });
 });

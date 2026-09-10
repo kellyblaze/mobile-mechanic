@@ -711,6 +711,13 @@ form select {
   text-transform: none;
   font-weight: 400;
   letter-spacing: normal;
+  /* Unlike <input>, a <select>'s intrinsic width is driven by its longest <option> text, not a
+     fixed default — AdminIssueQuote's service-request options ("customer@example.com — 2020
+     Toyota Camry (diagnostic)") are long enough to push the whole page into horizontal scroll at
+     375px without this (confirmed live: 592px content in a 375px viewport). */
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 form select:focus-visible {

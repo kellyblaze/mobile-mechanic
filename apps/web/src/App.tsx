@@ -12,6 +12,7 @@ import { RepairRoom } from './routes/RepairRoom.js';
 import { MechanicJobs } from './routes/MechanicJobs.js';
 import { AdminJobs } from './routes/AdminJobs.js';
 import { AdminIssueQuote } from './routes/AdminIssueQuote.js';
+import { AdminProvisionMembership } from './routes/AdminProvisionMembership.js';
 import { SignIn } from './routes/SignIn.js';
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? 'http://127.0.0.1:3000/api/v1';
@@ -61,6 +62,9 @@ function PrimaryNav({ actorKey }: { actorKey: ActorKey }) {
           </NavLink>
           <NavLink to="/admin/quotes/new" className={({ isActive }) => (isActive ? 'active' : undefined)}>
             New Quote
+          </NavLink>
+          <NavLink to="/admin/memberships/new" className={({ isActive }) => (isActive ? 'active' : undefined)}>
+            Grant Access
           </NavLink>
         </>
       )}
@@ -189,6 +193,7 @@ export default function App() {
               <Route path="/mechanic/jobs" element={<MechanicJobs api={api} actorKey={effectiveActorKey} />} />
               <Route path="/admin/jobs" element={<AdminJobs api={api} actorKey={effectiveActorKey} />} />
               <Route path="/admin/quotes/new" element={<AdminIssueQuote api={api} actorKey={effectiveActorKey} />} />
+              <Route path="/admin/memberships/new" element={<AdminProvisionMembership api={api} />} />
             </Routes>
           )}
         </div>

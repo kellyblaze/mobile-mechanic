@@ -26,6 +26,8 @@ export function AdminJobs({ api, actorKey }: { api: ApiAdapter; actorKey: ActorK
 
       <p>
         Issue a quote for a service request: <Link to="/admin/quotes/new">New quote</Link>
+        {' · '}
+        Grant a signed-up user business access: <Link to="/admin/memberships/new">Grant access</Link>
       </p>
 
       {jobs.isPending && <p role="status">Loading jobs&hellip;</p>}

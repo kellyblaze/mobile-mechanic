@@ -51,6 +51,28 @@ export type JobSummary = {
   version: number;
   createdAt?: string;
 };
+// GET /admin/service-requests has no response schema in openapi.yaml either — shape confirmed
+// via curl on 2026-09-10 against Codex's CR-006 implementation (packages/database/src/repositories.ts
+// createServiceRequestRepository.listForAdmin): carries customerId directly, which is exactly
+// what CR-006 exists to give the quote-issuance screen.
+export type AdminServiceRequest = {
+  id: string;
+  customerId: string;
+  vehicleId: string;
+  category: string;
+  symptoms: string[];
+  notes: string | null;
+  deliveryMode: string;
+  status: string;
+  createdAt: string;
+  customerEmail: string;
+  year: number;
+  make: string;
+  model: string;
+};
+// POST /admin/memberships response shape — live-verified via curl on 2026-09-10 against Codex's
+// CR-007 implementation.
+export type Membership = { userId: string; businessId: string; role: 'customer' | 'mechanic' | 'admin'; email: string };
 
 export type ApiErrorBody = { error: { code: string; message: string; fieldErrors?: Record<string, string[]>; requestId: string } };
 
@@ -160,15 +182,23 @@ export function createApiAdapter(options: ApiAdapterOptions) {
         method: 'POST',
         body: input
       }),
-    // customerId/lines are required by the contract's QuoteInput but there's no endpoint to look
-    // a service request's customer up by id (CR-006) — admin currently has to know/enter it.
     issueQuote: (
       requestId: string,
       input: { customerId: string; currency: string; lines: { description: string; amountMinor: number }[] }
     ) => request<{ data: Record<string, unknown> }>(`/admin/service-requests/${requestId}/quotes`, {
       method: 'POST',
       body: input
-    })
+    }),
+    // CR-006, resolved in contract 1.4.0 — replaces the manual request-id/customer-id entry on
+    // AdminIssueQuote with a real picker.
+    listAdminServiceRequests: (status?: string) =>
+      request<{ data: AdminServiceRequest[] }>(`/admin/service-requests${status ? `?status=${encodeURIComponent(status)}` : ''}`),
+    // CR-007, resolved as "provisioned accounts" — an admin links an already-signed-up Supabase
+    // Auth user (found by email in public.users) to a business role. Does not create the
+    // Supabase Auth account itself; that still happens through the approved Supabase/admin
+    // process outside this app (see docs/change-requests/CR-007.md).
+    provisionMembership: (input: { email: string; role: 'customer' | 'mechanic' | 'admin' }) =>
+      request<{ data: Membership }>('/admin/memberships', { method: 'POST', body: input })
   };
 }
 
