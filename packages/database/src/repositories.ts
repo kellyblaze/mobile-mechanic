@@ -24,7 +24,21 @@ export function createBookingRepository(db: Database) {
       });
     },
     async confirmHold(holdId: string, customerId: string) { return db.withTransaction(async (client) => { const hold = await client.query('SELECT * FROM booking_holds WHERE id = $1 AND customer_id = $2 FOR UPDATE', [holdId, customerId]); if (!hold.rows[0] || hold.rows[0].status !== 'active' || new Date(hold.rows[0].expires_at) <= new Date()) return null; const appointment = await client.query('INSERT INTO appointments (customer_id, mechanic_id, starts_at, ends_at, timezone, status, version, hold_id, idempotency_key) VALUES ($1,$2,$3,$4,\'America/New_York\',\'confirmed\',1,$5,$6) RETURNING id, customer_id AS "customerId", mechanic_id AS "mechanicId", starts_at AS "startsAt", ends_at AS "endsAt", status, hold_id AS "holdId"', [customerId, hold.rows[0].mechanic_id, hold.rows[0].starts_at, hold.rows[0].ends_at, holdId, `confirm-${holdId}`]); const job = await client.query('INSERT INTO jobs (appointment_id, customer_id, mechanic_id, status, version) VALUES ($1,$2,$3,\'scheduled\',1) RETURNING id, appointment_id AS "appointmentId", customer_id AS "customerId", mechanic_id AS "mechanicId", status, version', [appointment.rows[0].id, customerId, hold.rows[0].mechanic_id]); await client.query("UPDATE booking_holds SET status = 'converted' WHERE id = $1", [holdId]); return { appointment: appointment.rows[0], job: job.rows[0] }; }); },
-    async listMechanics(customerId: string) { return db.query('SELECT DISTINCT u.id, u.email AS "displayName" FROM users u JOIN memberships mechanic_membership ON mechanic_membership.user_id = u.id WHERE mechanic_membership.role = \'mechanic\' AND EXISTS (SELECT 1 FROM memberships customer_membership WHERE customer_membership.user_id = $1 AND customer_membership.business_id = mechanic_membership.business_id) ORDER BY u.email', [customerId]); }
+    async listMechanics(customerId: string) { return db.query('SELECT DISTINCT u.id, u.email AS "displayName" FROM users u JOIN memberships mechanic_membership ON mechanic_membership.user_id = u.id WHERE mechanic_membership.role = \'mechanic\' AND EXISTS (SELECT 1 FROM memberships customer_membership WHERE customer_membership.user_id = $1 AND customer_membership.business_id = mechanic_membership.business_id) ORDER BY u.email', [customerId]); },
+    async cancelAppointment(input: { appointmentId: string; actorId: string; role: string; reason?: string }) {
+      return db.withTransaction(async (client) => {
+        const current = await client.query('SELECT id, customer_id AS "customerId", mechanic_id AS "mechanicId", starts_at AS "startsAt", status, version FROM appointments WHERE id = $1 FOR UPDATE', [input.appointmentId]);
+        const appointment = current.rows[0];
+        if (!appointment || !['confirmed', 'scheduled'].includes(appointment.status)) return { kind: 'not_found' as const };
+        const participant = input.role === 'admin' || (input.role === 'customer' && appointment.customerId === input.actorId) || (input.role === 'mechanic' && appointment.mechanicId === input.actorId);
+        if (!participant) return { kind: 'forbidden' as const };
+        const cutoff = new Date(Date.now() + 2 * 60 * 60 * 1000);
+        if (input.role !== 'admin' && new Date(appointment.startsAt) < cutoff) return { kind: 'cutoff' as const };
+        const updated = await client.query("UPDATE appointments SET status = 'cancelled', version = version + 1, cancelled_at = now(), cancelled_by = $2, cancellation_reason = $3 WHERE id = $1 RETURNING id, customer_id AS \"customerId\", mechanic_id AS \"mechanicId\", starts_at AS \"startsAt\", status, version, cancelled_at AS \"cancelledAt\", cancellation_reason AS \"cancellationReason\"", [input.appointmentId, input.actorId, input.reason ?? null]);
+        await client.query('INSERT INTO audit_events (actor_id, action, resource_type, resource_id, payload) VALUES ($1, $2, $3, $4, $5)', [input.actorId, 'appointment.cancelled', 'appointment', input.appointmentId, JSON.stringify({ reason: input.reason ?? null })]);
+        return { kind: 'cancelled' as const, appointment: updated.rows[0] };
+      });
+    }
   };
 }
 

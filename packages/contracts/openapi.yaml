@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Mobile Mechanic API
-  version: 1.7.0
+  version: 1.8.0
   description: Contract v1.0.0. Development adapters are explicitly marked in responses.
 servers:
   - url: http://127.0.0.1:3000/api/v1
@@ -17,6 +17,8 @@ paths:
     post: {operationId: createBookingHold, tags: [jobs], security: [{devSession: []}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/BookingHoldInput'}}}}, responses: {'201': {description: Booking hold}, '409': {$ref: '#/components/responses/Conflict'}}}
   /booking-holds/{id}/confirm:
     post: {operationId: confirmBookingHold, tags: [jobs], security: [{devSession: []}], parameters: [{in: path, name: id, required: true, schema: {type: string}}], responses: {'201': {description: Confirmed appointment and scheduled job, content: {application/json: {schema: {$ref: '#/components/schemas/BookingConfirmation'}}}}, '409': {$ref: '#/components/responses/Conflict'}}}
+  /appointments/{id}/cancel:
+    post: {operationId: cancelAppointment, tags: [jobs], security: [{devSession: []}], parameters: [{in: path, name: id, required: true, schema: {type: string}}], requestBody: {required: false, content: {application/json: {schema: {$ref: '#/components/schemas/CancellationInput'}}}}, responses: {'200': {description: Cancelled appointment}, '403': {$ref: '#/components/responses/Forbidden'}, '409': {$ref: '#/components/responses/Conflict'}}}
   /mechanics:
     get: {operationId: listMechanics, tags: [jobs], security: [{devSession: []}], responses: {'200': {description: Mechanics}}}
   /vehicles:
@@ -78,6 +80,7 @@ components:
     MembershipInput: {type: object, required: [email, role], properties: {email: {type: string, format: email}, role: {type: string, enum: [customer, mechanic, admin]}}}
     PaymentInput: {type: object, required: [amountMinor, currency, idempotencyKey], properties: {invoiceId: {type: string}, amountMinor: {type: integer, minimum: 1}, currency: {type: string, minLength: 3, maxLength: 3}, idempotencyKey: {type: string, minLength: 8}}}
     BookingConfirmation: {type: object, required: [appointment, job], properties: {appointment: {type: object}, job: {type: object}}}
+    CancellationInput: {type: object, properties: {reason: {type: string, maxLength: 500}}}
     ServiceList: {type: object, properties: {data: {type: array, items: {type: object}}, meta: {type: object}}}
   responses:
     Unauthorized: {description: Unauthenticated, content: {application/json: {schema: {$ref: '#/components/schemas/ApiError'}}}}

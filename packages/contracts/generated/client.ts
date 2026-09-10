@@ -1,5 +1,5 @@
 // Generated contract client. Do not edit manually; regenerate after OpenAPI changes.
-export const CONTRACT_VERSION = '1.7.0';
+export const CONTRACT_VERSION = '1.1.0';
 export type ApiError = { error: { code: string; message: string; fieldErrors?: Record<string, string[]>; requestId: string } };
 export type ApiClientOptions = { baseUrl: string; fetchImpl?: typeof fetch; headers?: () => Record<string, string> };
 export function createApiClient(options: ApiClientOptions) {
