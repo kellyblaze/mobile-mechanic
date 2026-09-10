@@ -23,21 +23,29 @@ export function AdminIssueQuote({ api, actorKey }: { api: ApiAdapter; actorKey: 
   const updateLine = (id: string, field: 'description' | 'amount', value: string) =>
     setLines((current) => current.map((line) => (line.id === id ? { ...line, [field]: value } : line)));
 
+  // A line only counts once both fields are genuinely usable — previously the amount side wasn't
+  // checked here, so a line with a real description but a non-numeric amount (e.g. "abc") silently
+  // submitted as amountMinor: null (Math.round(NaN * 100) is NaN, which JSON.stringify drops to
+  // null) instead of being excluded or flagged.
+  const isUsableLine = (line: QuoteLine) => line.description.trim() !== '' && Number.isFinite(Number(line.amount)) && Number(line.amount) > 0;
+  const droppableLines = lines.filter((line) => line.description.trim() !== '' && !isUsableLine(line));
+
   const issueQuote = useMutation({
     mutationFn: () =>
       api.issueQuote(requestId.trim(), {
         customerId: customerId.trim(),
         currency,
-        lines: lines
-          .filter((line) => line.description.trim() !== '')
-          .map((line) => ({ description: line.description.trim(), amountMinor: Math.round(Number(line.amount) * 100) }))
-      })
+        lines: lines.filter(isUsableLine).map((line) => ({ description: line.description.trim(), amountMinor: Math.round(Number(line.amount) * 100) }))
+      }),
+    onSuccess: () => {
+      setRequestId('');
+      setCustomerId('');
+      setCurrency('USD');
+      setLines([{ id: crypto.randomUUID(), description: '', amount: '' }]);
+    }
   });
 
-  const canSubmit =
-    requestId.trim() !== '' &&
-    customerId.trim() !== '' &&
-    lines.some((line) => line.description.trim() !== '' && Number(line.amount) > 0);
+  const canSubmit = requestId.trim() !== '' && customerId.trim() !== '' && lines.some(isUsableLine);
 
   return (
     <section aria-labelledby="issue-quote-heading">
@@ -50,6 +58,11 @@ export function AdminIssueQuote({ api, actorKey }: { api: ApiAdapter; actorKey: 
         Issue a quote
       </h1>
 
+      <p className="pending-note">
+        There is no endpoint yet to look up pending service requests or their customer, so both
+        ids below must be entered manually (see docs/change-requests/CR-006.md).
+      </p>
+
       <form
         className="intake-step"
         onSubmit={(event) => {
@@ -59,11 +72,11 @@ export function AdminIssueQuote({ api, actorKey }: { api: ApiAdapter; actorKey: 
       >
         <label>
           Service request ID
-          <input required value={requestId} onChange={(event) => setRequestId(event.target.value)} />
+          <input required value={requestId} onChange={(event) => setRequestId(event.target.value)} placeholder="Paste the service request UUID" />
         </label>
         <label>
           Customer ID
-          <input required value={customerId} onChange={(event) => setCustomerId(event.target.value)} />
+          <input required value={customerId} onChange={(event) => setCustomerId(event.target.value)} placeholder="Paste the customer UUID" />
         </label>
         <label>
           Currency
@@ -72,8 +85,8 @@ export function AdminIssueQuote({ api, actorKey }: { api: ApiAdapter; actorKey: 
 
         <div className="intake-vehicle-list">
           {lines.map((line) => (
-            <div key={line.id} className="intake-vehicle-option">
-              <label style={{ flex: 1 }}>
+            <div key={line.id} className="quote-line">
+              <label>
                 Description
                 <input
                   value={line.description}
@@ -98,6 +111,13 @@ export function AdminIssueQuote({ api, actorKey }: { api: ApiAdapter; actorKey: 
             </div>
           ))}
         </div>
+        {droppableLines.length > 0 && (
+          <p role="alert" className="field-errors">
+            {droppableLines.length === 1
+              ? 'One line has a description but no valid amount and will be left out of the quote.'
+              : `${droppableLines.length} lines have a description but no valid amount and will be left out of the quote.`}
+          </p>
+        )}
         <div className="intake-nav">
           <button type="button" onClick={addLine}>
             Add line

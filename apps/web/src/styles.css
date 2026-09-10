@@ -622,6 +622,25 @@ main {
   letter-spacing: 0.03em;
 }
 
+/* MechanicJobs/AdminJobs cards: groups the job id with its booked date so the flex layout on
+   .vehicle-card still has exactly two children (this info block, the status badge). */
+.job-card-info {
+  display: grid;
+  gap: 2px;
+}
+
+/* Overrides the .vehicle-card span rule above — that rule was written for the accent-colored
+   status badge, not a plain date, so this resets it back to a quiet, muted meta line. Needs the
+   .vehicle-card prefix to out-specify ".vehicle-card span" (a class+element compound selector
+   beats a lone class selector); a bare ".job-card-date" rule was silently losing to it. */
+.vehicle-card .job-card-date {
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
 form {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
@@ -658,6 +677,25 @@ form input {
 }
 
 form input:focus-visible {
+  border-color: var(--color-accent);
+}
+
+/* Added for the mechanic finding-category dropdown (RepairRoom) — previously unstyled, so it
+   rendered as a bare browser-default <select> next to the themed text inputs beside it. */
+form select {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2);
+  font-size: 1rem;
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  text-transform: none;
+  font-weight: 400;
+  letter-spacing: normal;
+}
+
+form select:focus-visible {
   border-color: var(--color-accent);
 }
 
@@ -821,6 +859,28 @@ button:disabled {
   font-weight: 400;
   color: var(--color-text);
   letter-spacing: normal;
+}
+
+/* AdminIssueQuote's per-line description + amount row. A CSS Grid with an explicit mobile
+   collapse, rather than reusing .intake-vehicle-option's flex layout (built for Intake's
+   single-item vehicle radio rows) — that flex-grow/flex-basis combination collapsed the
+   description field to ~18px with its input still rendering at full size and overlapping the
+   amount field, confirmed live via getBoundingClientRect at 375px width. */
+.quote-line {
+  display: grid;
+  grid-template-columns: 2fr 1fr auto;
+  gap: var(--space-2);
+  align-items: end;
+}
+
+@media (max-width: 480px) {
+  .quote-line {
+    grid-template-columns: 1fr;
+  }
+
+  .quote-line button {
+    justify-self: start;
+  }
 }
 
 .intake-chip-group {

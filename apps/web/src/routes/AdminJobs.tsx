@@ -30,13 +30,16 @@ export function AdminJobs({ api, actorKey }: { api: ApiAdapter; actorKey: ActorK
 
       {jobs.isPending && <p role="status">Loading jobs&hellip;</p>}
       {jobs.isError && <ErrorPanel error={jobs.error} onRetry={() => jobs.refetch()} />}
-      {jobs.data && jobs.data.data.length === 0 && <p>No jobs yet.</p>}
+      {jobs.data && jobs.data.data.length === 0 && <p className="pending-note">No jobs yet.</p>}
       {jobs.data && jobs.data.data.length > 0 && (
         <ul className="vehicle-list">
           {jobs.data.data.map((job, index) => (
             <li key={job.id}>
               <Link to={`/jobs/${job.id}`} className="vehicle-card" style={{ animationDelay: `${index * 0.08}s` }}>
-                <strong>Job {job.id.slice(0, 8)}&hellip;</strong>
+                <div className="job-card-info">
+                  <strong>Job {job.id.slice(0, 8)}&hellip;</strong>
+                  {job.createdAt && <span className="job-card-date">Booked {new Date(job.createdAt).toLocaleDateString()}</span>}
+                </div>
                 <StatusBadge status={job.status} />
               </Link>
             </li>

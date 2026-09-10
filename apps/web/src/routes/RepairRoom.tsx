@@ -152,7 +152,7 @@ export function RepairRoom({ api, actorKey }: { api: ApiAdapter; actorKey: Actor
                     rejects anything outside this set (confirmed via curl: 422 "Invalid enum value.
                     Expected 'recommended_now' | 'plan_for_later' | 'monitor'") — using the real
                     values rather than the contract's (wrong) free-text implication. */}
-                <select value={findingCategory} onChange={(event) => setFindingCategory(event.target.value)}>
+                <select required value={findingCategory} onChange={(event) => setFindingCategory(event.target.value)}>
                   <option value="">Select a category&hellip;</option>
                   <option value="recommended_now">Recommended now</option>
                   <option value="plan_for_later">Plan for later</option>
