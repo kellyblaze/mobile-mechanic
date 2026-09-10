@@ -3,7 +3,7 @@
 Repository: E:\Projects\Mobile Mechanic
 Branch: feature/issue-2-backend-completion
 Backend handoff commit: 90e07833f043a7f7167672b0d64039d48cb04a51
-Contract version: 1.4.0
+Contract version: 1.7.0
 Canonical contract: packages/contracts/openapi.yaml
 Generated client: packages/contracts/generated/client.ts
 
@@ -55,8 +55,9 @@ Use the generated client through one frontend adapter.
 - Admin quote discovery: GET /admin/service-requests?status=submitted
 - Repair Room: GET/POST /jobs/{id}/findings, GET/POST /jobs/{id}/messages, GET /jobs/{id}
 - Jobs: GET /admin/jobs, GET /mechanic/jobs, POST /jobs/{id}/transitions, POST /jobs/{id}/completion-report
-- Scheduling: GET /availability, POST /booking-holds
-- Billing: GET /invoices, POST /payments, POST /payments/{id}/refund
+- Scheduling: GET /availability, POST /booking-holds, POST /booking-holds/{id}/confirm (returns appointment and scheduled job)
+- Mechanics: GET /mechanics
+- Billing: GET /invoices, POST /admin/jobs/{id}/invoices, POST /payments (optional invoiceId), POST /payments/{id}/refund
 
 Payment UI must use the returned Stripe client secret and clearly distinguish test/development mode. Implemented does not mean all business policy or provider deployment work is complete.
 
@@ -89,7 +90,7 @@ You are taking over the frontend only for the Mobile Mechanic repository.
 
 Read AGENTS.md, CLAUDE.md, docs/product-build-agreement.md, docs/architecture.md, docs/integration-status.md, docs/production-hardening.md, docs/frontend-handoff.md, packages/contracts/openapi.yaml, packages/contracts/generated/client.ts, and packages/contracts/fixtures/index.json.
 
-Work from branch feature/issue-2-backend-completion at backend handoff commit 90e07833f043a7f7167672b0d64039d48cb04a51. The API contract is version 1.2.0.
+Work from branch feature/issue-2-backend-completion at the backend handoff commit named in this file. The API contract is version 1.7.0.
 
 Modify only apps/web and frontend-only packages/ui files. Do not modify backend, database, migrations, OpenAPI, generated client, fixtures, root tooling, environment secrets, authentication, authorization, or backend business rules. Use the generated client through one adapter. Do not invent endpoints or policies.
 
