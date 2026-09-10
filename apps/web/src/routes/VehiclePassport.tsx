@@ -83,10 +83,28 @@ export function VehiclePassport({ api, actorKey }: { api: ApiAdapter; actorKey: 
       )}
       {history.data && history.data.data.length > 0 && (
         <ul className="service-list">
+          {/* Real field names confirmed live via curl against GET /vehicles/{id}/history:
+              {id, category, status, createdAt} — a service-request record, not (yet) a
+              completed-job record with a description. description/summary/completedAt/date
+              kept as fallbacks in case a future entry shape includes them, per the same
+              defensive pattern used for findings/messages elsewhere in this codebase. */}
           {history.data.data.map((entry, index) => (
             <li key={String(entry.id ?? index)} className="service-card">
-              <strong>{String(entry.description ?? entry.summary ?? 'Service record')}</strong>
-              <span>{String(entry.completedAt ?? entry.date ?? '')}</span>
+              <strong>
+                {String(
+                  entry.description ??
+                    entry.summary ??
+                    (entry.category ? `${entry.category} (${entry.status ?? 'unknown'})` : 'Service record')
+                )}
+              </strong>
+              <span>
+                {(() => {
+                  const raw = entry.completedAt ?? entry.date ?? entry.createdAt;
+                  if (typeof raw !== 'string') return '';
+                  const parsed = new Date(raw);
+                  return Number.isNaN(parsed.getTime()) ? raw : parsed.toLocaleDateString();
+                })()}
+              </span>
             </li>
           ))}
         </ul>
