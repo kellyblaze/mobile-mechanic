@@ -143,6 +143,17 @@ describe('createApiAdapter', () => {
     expect(JSON.parse(init.body)).toEqual({ category: 'recommended_now', note: 'Pads worn thin.' });
   });
 
+  it('requests invoices from the correct path', async () => {
+    const fetchImpl = mockFetch(200, { data: [] });
+    const api = createApiAdapter({ baseUrl: 'http://api.test', actor: { userId: 'customer-demo', role: 'customer' }, fetchImpl });
+
+    const result = await api.listInvoices();
+
+    const call = (fetchImpl as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe('http://api.test/invoices');
+    expect(result.data).toEqual([]);
+  });
+
   it('issues a quote against a service request with lines', async () => {
     const fetchImpl = mockFetch(201, { data: { id: 'quote-1' } });
     const api = createApiAdapter({ baseUrl: 'http://api.test', actor: { userId: 'admin-demo', role: 'admin' }, fetchImpl });

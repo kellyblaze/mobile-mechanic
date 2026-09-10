@@ -27,6 +27,19 @@ export type Job = {
   allowedActions?: string[];
 };
 export type Quote = { id: string; customerId?: string; status: string; version: number; currency: string; totalMinor: number; lines: { description: string; amountMinor: number }[] };
+// GET /invoices has no response schema in openapi.yaml ("description: Customer invoices" only) —
+// shape confirmed by reading packages/database/src/repositories.ts's createInvoiceRepository
+// query directly, not guessed. Customer-only (403 for mechanic/admin, verified live via curl).
+export type Invoice = {
+  id: string;
+  jobId?: string;
+  customerId?: string;
+  currency: string;
+  totalMinor: number;
+  status: string;
+  dueAt?: string;
+  createdAt?: string;
+};
 export type Session = { user: { id: string; role: string }; capabilities: string[] };
 // Job summary as returned by GET /mechanic/jobs and GET /admin/jobs — live-verified same shape
 // on both, distinct from the fuller Job type (no allowedActions/quoteId in the list response).
@@ -110,6 +123,7 @@ export function createApiAdapter(options: ApiAdapterOptions) {
     getJob: (id: string) => request<{ data: Job }>(`/jobs/${id}`),
     getQuote: (id: string) => request<{ data: Quote }>(`/quotes/${id}`),
     getVehicleHistory: (id: string) => request<{ data: Record<string, unknown>[] }>(`/vehicles/${id}/history`),
+    listInvoices: () => request<{ data: Invoice[] }>('/invoices'),
     createServiceRequest: (input: { vehicleId: string; category: string; symptoms: string[]; notes?: string; attachmentIds?: string[] }) => request<{ data: Record<string, unknown> }>('/service-requests', { method: 'POST', body: input }),
     initiateUpload: (input: { fileName: string; contentType: string; sizeBytes: number }) => request<{ data: Record<string, unknown> }>('/uploads', { method: 'POST', body: input }),
     listFindings: (id: string) => request<{ data: Record<string, unknown>[] }>(`/jobs/${id}/findings`),

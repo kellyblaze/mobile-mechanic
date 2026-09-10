@@ -24,6 +24,14 @@ export function RepairRoom({ api, actorKey }: { api: ApiAdapter; actorKey: Actor
   });
   const findings = useQuery({ queryKey: ['findings', id, actorKey], queryFn: () => api.listFindings(id) });
   const messages = useQuery({ queryKey: ['messages', id, actorKey], queryFn: () => api.listMessages(id) });
+  // GET /invoices is customer-only (verified live via curl: 403 for mechanic/admin) and returns
+  // every invoice for the customer, not scoped to a job — enabled only for the customer role, and
+  // filtered client-side to this job below, same pattern VehiclePassport uses for its list-only API.
+  const invoices = useQuery({
+    queryKey: ['invoices', actorKey],
+    queryFn: () => api.listInvoices(),
+    enabled: actorKey === 'customer'
+  });
   const [message, setMessage] = useState('');
   const sendMessage = useMutation({ mutationFn: () => api.sendMessage(id, message), onSuccess: () => { setMessage(''); void queryClient.invalidateQueries({ queryKey: ['messages', id, actorKey] }); } });
 
@@ -221,10 +229,33 @@ export function RepairRoom({ api, actorKey }: { api: ApiAdapter; actorKey: Actor
         </section>
       )}
 
-      <p className="pending-note">
-        Invoices are not yet published in the API contract. That section will appear here once its endpoint ships
-        (see docs/integration-status.md).
-      </p>
+      {actorKey === 'customer' && (
+        <section aria-labelledby="invoices-heading">
+          <h2 id="invoices-heading">Invoices</h2>
+          {invoices.isPending && <p role="status">Loading invoices&hellip;</p>}
+          {invoices.isError && <ErrorPanel error={invoices.error} onRetry={() => invoices.refetch()} />}
+          {invoices.data && (
+            (() => {
+              const forThisJob = invoices.data.data.filter((invoice) => invoice.jobId === id);
+              if (forThisJob.length === 0) {
+                return <p className="pending-note">No invoices for this job yet.</p>;
+              }
+              return (
+                <ul className="service-list">
+                  {forThisJob.map((invoice) => (
+                    <li key={invoice.id} className="service-card">
+                      <strong>
+                        ${(invoice.totalMinor / 100).toFixed(2)} {invoice.currency} &mdash; <StatusBadge status={invoice.status} />
+                      </strong>
+                      {invoice.dueAt && <span>Due {new Date(invoice.dueAt).toLocaleDateString()}</span>}
+                    </li>
+                  ))}
+                </ul>
+              );
+            })()
+          )}
+        </section>
+      )}
     </section>
   );
 }
