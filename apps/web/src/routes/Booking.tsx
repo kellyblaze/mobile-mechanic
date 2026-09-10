@@ -9,13 +9,9 @@ const HOLD_EXPIRES_IN_MS = 30 * 60 * 1000;
 
 export function Booking({ api }: { api: ApiAdapter }) {
   const { ref: headingRef, isInView: headingInView } = useInViewOnce<HTMLHeadingElement>();
+  // CR-013, resolved: GET /mechanics now scopes to the caller's own business and returns DISTINCT
+  // rows — re-verified live (was returning the same mechanic four times before the fix).
   const mechanics = useQuery({ queryKey: ['mechanics'], queryFn: () => api.listMechanics() });
-  // CR-013: GET /mechanics currently returns duplicate rows (confirmed live via curl — the same
-  // mechanic came back four times) — deduplicated by id here so the picker doesn't show repeats,
-  // even though the underlying cross-tenant scoping gap isn't something the frontend can fix.
-  const uniqueMechanics = mechanics.data
-    ? Array.from(new Map(mechanics.data.data.map((mechanic) => [mechanic.id, mechanic])).values())
-    : [];
 
   const [mechanicId, setMechanicId] = useState('');
   const [startLocal, setStartLocal] = useState('');
@@ -62,9 +58,9 @@ export function Booking({ api }: { api: ApiAdapter }) {
 
       {mechanics.isPending && <p role="status">Loading mechanics&hellip;</p>}
       {mechanics.isError && <ErrorPanel error={mechanics.error} onRetry={() => mechanics.refetch()} />}
-      {mechanics.data && uniqueMechanics.length === 0 && <p className="pending-note">No mechanics are available to book right now.</p>}
+      {mechanics.data && mechanics.data.data.length === 0 && <p className="pending-note">No mechanics are available to book right now.</p>}
 
-      {uniqueMechanics.length > 0 && (
+      {mechanics.data && mechanics.data.data.length > 0 && (
         <form
           className="intake-step"
           onSubmit={(event) => {
@@ -85,7 +81,7 @@ export function Booking({ api }: { api: ApiAdapter }) {
               }}
             >
               <option value="">Select a mechanic&hellip;</option>
-              {uniqueMechanics.map((mechanic) => (
+              {mechanics.data.data.map((mechanic) => (
                 <option key={mechanic.id} value={mechanic.id}>
                   {mechanic.displayName}
                 </option>
