@@ -31,6 +31,18 @@ paths:
     post: {operationId: sendMessage, tags: [jobs], security: [{devSession: []}], parameters: [{in: path, name: id, required: true, schema: {type: string}}, {in: header, name: Idempotency-Key, required: true, schema: {type: string, minLength: 8}}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/MessageInput'}}}}, responses: {'201': {description: Message}, '409': {$ref: '#/components/responses/Conflict'}}}
   /quotes/{id}/accept:
     post: {operationId: acceptQuote, tags: [quotes], security: [{devSession: []}], parameters: [{in: path, name: id, required: true, schema: {type: string}}, {in: header, name: Idempotency-Key, required: true, schema: {type: string, minLength: 8}}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/VersionedCommand'}}}}, responses: {'200': {description: Accepted quote}, '409': {$ref: '#/components/responses/Conflict'}, '422': {$ref: '#/components/responses/Validation'}}}
+  /admin/service-requests/{id}/quotes:
+    post: {operationId: issueQuote, tags: [quotes], security: [{devSession: []}], parameters: [{in: path, name: id, required: true, schema: {type: string}}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/QuoteInput'}}}}, responses: {'201': {description: Issued quote}, '403': {$ref: '#/components/responses/Forbidden'}}}
+  /jobs/{id}/transitions:
+    post: {operationId: transitionJob, tags: [jobs], security: [{devSession: []}], parameters: [{in: path, name: id, required: true, schema: {type: string}}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/JobTransition'}}}}, responses: {'200': {description: Transitioned job}, '409': {$ref: '#/components/responses/Conflict'}}}
+  /jobs/{id}/completion-report:
+    post: {operationId: completeJob, tags: [jobs], security: [{devSession: []}], parameters: [{in: path, name: id, required: true, schema: {type: string}}], requestBody: {required: true, content: {application/json: {schema: {type: object, required: [summary], properties: {summary: {type: string}}}}}}, responses: {'200': {description: Completion report}}}
+  /invoices:
+    get: {operationId: listInvoices, tags: [quotes], security: [{devSession: []}], responses: {'200': {description: Customer invoices}}}
+  /payments:
+    post: {operationId: createPayment, tags: [quotes], security: [{devSession: []}], responses: {'201': {description: Payment intent}, '503': {description: Payment provider unavailable}}}
+  /payments/{id}/refund:
+    post: {operationId: refundPayment, tags: [quotes], security: [{devSession: []}], parameters: [{in: path, name: id, required: true, schema: {type: string}}], responses: {'200': {description: Refund}}}
 components:
   securitySchemes: {devSession: {type: apiKey, in: header, name: X-Dev-User-Id, description: Development-only session paired with X-Dev-Role; production uses managed auth cookies.}}
   schemas:
@@ -41,6 +53,8 @@ components:
     ServiceRequestInput: {type: object, required: [vehicleId, category, symptoms], properties: {vehicleId: {type: string}, category: {type: string}, symptoms: {type: array, items: {type: string}}, notes: {type: string}, attachmentIds: {type: array, items: {type: string}}}}
     UploadInput: {type: object, required: [fileName, contentType, sizeBytes], properties: {fileName: {type: string}, contentType: {type: string, enum: [image/jpeg, image/png, image/webp, video/mp4]}, sizeBytes: {type: integer, maximum: 25000000}}}
     MessageInput: {type: object, required: [body], properties: {body: {type: string, minLength: 1, maxLength: 4000}}}
+    QuoteInput: {type: object, required: [customerId, currency, lines], properties: {customerId: {type: string}, currency: {type: string}, lines: {type: array, items: {type: object}}}}
+    JobTransition: {type: object, required: [expectedVersion, status], properties: {expectedVersion: {type: integer}, status: {type: string}}}
     ServiceList: {type: object, properties: {data: {type: array, items: {type: object}}, meta: {type: object}}}
   responses:
     Unauthorized: {description: Unauthenticated, content: {application/json: {schema: {$ref: '#/components/schemas/ApiError'}}}}
