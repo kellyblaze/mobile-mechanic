@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Mobile Mechanic API
-  version: 1.1.0
+  version: 1.2.0
   description: Contract v1.0.0. Development adapters are explicitly marked in responses.
 servers:
   - url: http://127.0.0.1:3000/api/v1
@@ -11,6 +11,10 @@ paths:
     get: {operationId: getSession, tags: [session], responses: {'200': {description: Session, content: {application/json: {schema: {$ref: '#/components/schemas/Session'}}}}, '401': {$ref: '#/components/responses/Unauthorized'}}}
   /service-catalog:
     get: {operationId: listServiceCatalog, tags: [catalog], responses: {'200': {description: Catalog, content: {application/json: {schema: {$ref: '#/components/schemas/ServiceList'}}}}}}
+  /availability:
+    get: {operationId: getAvailability, tags: [jobs], security: [{devSession: []}], parameters: [{in: query, name: mechanicId, required: true, schema: {type: string}}, {in: query, name: startsAt, required: true, schema: {type: string, format: date-time}}, {in: query, name: endsAt, required: true, schema: {type: string, format: date-time}}], responses: {'200': {description: Availability}, '422': {$ref: '#/components/responses/Validation'}}}
+  /booking-holds:
+    post: {operationId: createBookingHold, tags: [jobs], security: [{devSession: []}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/BookingHoldInput'}}}}, responses: {'201': {description: Booking hold}, '409': {$ref: '#/components/responses/Conflict'}}}
   /vehicles:
     get: {operationId: listVehicles, tags: [vehicles], security: [{devSession: []}], responses: {'200': {description: Vehicles}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}}}
     post: {operationId: createVehicle, tags: [vehicles], security: [{devSession: []}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/VehicleInput'}}}}, responses: {'201': {description: Created}, '422': {$ref: '#/components/responses/Validation'}}}
@@ -60,6 +64,7 @@ components:
     MessageInput: {type: object, required: [body], properties: {body: {type: string, minLength: 1, maxLength: 4000}}}
     QuoteInput: {type: object, required: [customerId, currency, lines], properties: {customerId: {type: string}, currency: {type: string}, lines: {type: array, items: {type: object}}}}
     JobTransition: {type: object, required: [expectedVersion, status], properties: {expectedVersion: {type: integer}, status: {type: string}}}
+    BookingHoldInput: {type: object, required: [mechanicId, startsAt, endsAt, expiresAt, idempotencyKey], properties: {mechanicId: {type: string}, startsAt: {type: string, format: date-time}, endsAt: {type: string, format: date-time}, expiresAt: {type: string, format: date-time}, idempotencyKey: {type: string, minLength: 8}}}
     ServiceList: {type: object, properties: {data: {type: array, items: {type: object}}, meta: {type: object}}}
   responses:
     Unauthorized: {description: Unauthenticated, content: {application/json: {schema: {$ref: '#/components/schemas/ApiError'}}}}

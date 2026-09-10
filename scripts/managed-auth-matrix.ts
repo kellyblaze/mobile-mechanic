@@ -31,18 +31,34 @@ const checks: Array<[string, string, string, number]> = [
   ['customer vehicles', 'customer', '/vehicles', 200],
   ['customer admin jobs denied', 'customer', '/admin/jobs', 403],
   ['customer mechanic jobs denied', 'customer', '/mechanic/jobs', 403],
+  ['customer invoices', 'customer', '/invoices', 200],
+  ['customer service request validation', 'customer', '/service-requests', 422],
+  ['customer upload validation', 'customer', '/uploads', 422],
+  ['customer payment validation', 'customer', '/payments', 422],
+  ['customer quote not found', 'customer', '/quotes/22222222-2222-4222-8222-222222222222', 404],
+  ['customer job not found', 'customer', '/jobs/44444444-4444-4444-8444-444444444444', 404],
+  ['customer findings not found', 'customer', '/jobs/44444444-4444-4444-8444-444444444444/findings', 404],
+  ['customer messages not found', 'customer', '/jobs/44444444-4444-4444-8444-444444444444/messages', 404],
   ['mechanic session', 'mechanic', '/session', 200],
   ['mechanic vehicles denied', 'mechanic', '/vehicles', 403],
   ['mechanic jobs', 'mechanic', '/mechanic/jobs', 200],
   ['mechanic admin jobs denied', 'mechanic', '/admin/jobs', 403],
+  ['mechanic invoices denied', 'mechanic', '/invoices', 403],
+  ['mechanic payment denied', 'mechanic', '/payments', 503],
+  ['mechanic quote issuance denied', 'mechanic', '/admin/service-requests/11111111-1111-4111-8111-111111111111/quotes', 403],
   ['admin session', 'admin', '/session', 200],
   ['admin vehicles denied', 'admin', '/vehicles', 403],
   ['admin jobs', 'admin', '/admin/jobs', 200],
   ['admin mechanic jobs denied', 'admin', '/mechanic/jobs', 403],
+  ['admin invoices denied', 'admin', '/invoices', 403],
+  ['admin payment denied', 'admin', '/payments', 503],
+  ['admin quote validation', 'admin', '/admin/service-requests/11111111-1111-4111-8111-111111111111/quotes', 422],
+  ['admin completion denied', 'admin', '/jobs/44444444-4444-4444-8444-444444444444/completion-report', 403],
 ];
 for (const [name, role, path, expected] of checks) {
   const actor = actors.find(item => item.role === role)!;
-  const response = await fetch(`${baseUrl}${path}`, { headers: actor.headers });
+  const method = path.endsWith('/service-requests') || path.endsWith('/uploads') || path.endsWith('/payments') || path.includes('/admin/service-requests/') || path.includes('/completion-report') ? 'POST' : 'GET';
+  const response = await fetch(`${baseUrl}${path}`, { method, headers: actor.headers, body: method === 'POST' ? '{}' : undefined });
   if (response.status !== expected) throw new Error(`${name}: expected ${expected}, got ${response.status}.`);
   console.log(`PASS ${name}: ${response.status}`);
 }
