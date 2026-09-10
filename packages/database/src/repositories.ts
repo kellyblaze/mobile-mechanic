@@ -28,3 +28,15 @@ export function createBookingRepository(db: Database) {
 export function createPaymentRepository(db: Database) {
   return { async createAttempt(input: { customerId: string; amountMinor: number; currency: string; idempotencyKey: string }) { const rows = await db.query('INSERT INTO payment_attempts (customer_id, provider, amount_minor, currency, status, idempotency_key) VALUES ($1,\'stripe\',$2,$3,\'created\',$4) ON CONFLICT DO NOTHING RETURNING id, status, amount_minor AS "amountMinor", currency, idempotency_key AS "idempotencyKey"', [input.customerId, input.amountMinor, input.currency, input.idempotencyKey]); return rows[0]; } };
 }
+
+export function createRepairRoomRepository(db: Database) {
+  return {
+    async listMessages(jobId: string) { return db.query('SELECT id, job_id AS "jobId", sender_id AS "senderId", body, created_at AS "createdAt" FROM job_messages WHERE job_id = $1 ORDER BY created_at', [jobId]); },
+    async addMessage(jobId: string, senderId: string, body: string) { const rows = await db.query('INSERT INTO job_messages (job_id, sender_id, body) VALUES ($1,$2,$3) RETURNING id, job_id AS "jobId", sender_id AS "senderId", body, created_at AS "createdAt"', [jobId, senderId, body]); return rows[0]; },
+    async listFindings(jobId: string) { return db.query('SELECT id, job_id AS "jobId", mechanic_id AS "mechanicId", category, note, attachment_id AS "attachmentId", created_at AS "createdAt" FROM inspection_findings WHERE job_id = $1 ORDER BY created_at', [jobId]); }
+  };
+}
+
+export function createInvoiceRepository(db: Database) {
+  return { async listForCustomer(customerId: string) { return db.query('SELECT id, job_id AS "jobId", customer_id AS "customerId", currency, total_minor AS "totalMinor", status, due_at AS "dueAt", created_at AS "createdAt" FROM invoices WHERE customer_id = $1 ORDER BY created_at DESC', [customerId]); } };
+}
