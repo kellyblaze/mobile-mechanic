@@ -7,10 +7,12 @@
 - API requests are rate-limited in memory by source IP. Configure `RATE_LIMIT_WINDOW_MS` and `RATE_LIMIT_MAX`; use a shared Redis or gateway limiter before horizontal scaling.
 - Stripe webhook events are stored as pending before processing and marked `processed_at` only after reconciliation. A failed delivery remains retryable and returns a non-2xx response.
 - Stripe signatures are verified and webhook routes are exempt only from Supabase bearer authentication.
+- Repair evidence uploads use a private Supabase Storage bucket, short-lived signed upload URLs, and a server-side completion check before an attachment becomes `ready`.
+- Webhook events are deduplicated by provider/event id; unprocessed events remain retryable because processing completion is recorded only after reconciliation.
 
 ## Required deployment configuration
 
-Set `DATABASE_URL`, `AUTH_MODE=managed`, `AUTH_ISSUER`, `AUTH_AUDIENCE`, `AUTH_JWKS_URL`, `SUPABASE_URL`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `APP_ORIGIN`, `RATE_LIMIT_WINDOW_MS`, and `RATE_LIMIT_MAX`. Never expose service-role or Stripe secret keys to the frontend.
+Set `DATABASE_URL`, `AUTH_MODE=managed`, `AUTH_ISSUER`, `AUTH_AUDIENCE`, `AUTH_JWKS_URL`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_STORAGE_BUCKET`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `APP_ORIGIN`, `RATE_LIMIT_WINDOW_MS`, and `RATE_LIMIT_MAX`. Never expose service-role, storage, or Stripe secret keys to the frontend.
 
 Expose `/health` to the platform health check. Forward logs to the platform collector and alert on repeated 5xx responses, 401/403 spikes, rate-limit spikes, webhook failures, and database connection failures. The current process does not ship a metrics backend; add OpenTelemetry or the hosting provider's metrics adapter before production traffic.
 

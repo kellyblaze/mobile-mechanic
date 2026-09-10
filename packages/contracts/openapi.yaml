@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Mobile Mechanic API
-  version: 1.8.0
+  version: 1.9.0
   description: Contract v1.0.0. Development adapters are explicitly marked in responses.
 servers:
   - url: http://127.0.0.1:3000/api/v1
@@ -29,7 +29,9 @@ paths:
   /service-requests:
     post: {operationId: createServiceRequest, tags: [vehicles], security: [{devSession: []}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ServiceRequestInput'}}}}, responses: {'201': {description: Created}, '422': {$ref: '#/components/responses/Validation'}}}
   /uploads:
-    post: {operationId: initiateUpload, tags: [vehicles], security: [{devSession: []}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/UploadInput'}}}}, responses: {'201': {description: Private upload reference}, '422': {$ref: '#/components/responses/Validation'}}}
+    post: {operationId: initiateUpload, tags: [vehicles], security: [{devSession: []}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/UploadInput'}}}}, responses: {'201': {description: Private signed upload}, '422': {$ref: '#/components/responses/Validation'}, '503': {description: Private storage unavailable}}}
+  /uploads/{id}/complete:
+    post: {operationId: completeUpload, tags: [vehicles], security: [{devSession: []}], parameters: [{in: path, name: id, required: true, schema: {type: string}}], responses: {'200': {description: Completed private upload}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}}}
   /quotes/{id}:
     get: {operationId: getQuote, tags: [quotes], security: [{devSession: []}], parameters: [{in: path, name: id, required: true, schema: {type: string}}], responses: {'200': {description: Quote}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}}}
   /jobs/{id}:

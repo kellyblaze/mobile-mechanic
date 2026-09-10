@@ -3,7 +3,7 @@
 Repository: E:\Projects\Mobile Mechanic
 Branch: feature/issue-2-backend-completion
 Backend handoff commit: 90e07833f043a7f7167672b0d64039d48cb04a51
-Contract version: 1.8.0
+Contract version: 1.9.0
 Canonical contract: packages/contracts/openapi.yaml
 Generated client: packages/contracts/generated/client.ts
 
@@ -49,7 +49,7 @@ Use the generated client through one frontend adapter.
 
 - Session/catalog: GET /session, GET /service-catalog
 - Vehicles: GET/POST /vehicles, GET /vehicles/{id}/history
-- Intake/uploads: POST /service-requests, POST /uploads
+- Intake/uploads: POST /service-requests, POST /uploads, POST /uploads/{id}/complete; uploads require configured private Supabase Storage and return a short-lived signed upload URL
 - Quotes: GET /quotes/{id}, POST /quotes/{id}/accept, POST /admin/service-requests/{id}/quotes
 - Account provisioning: POST /admin/memberships (admin only; links an existing Supabase Auth user by email)
 - Admin quote discovery: GET /admin/service-requests?status=submitted
