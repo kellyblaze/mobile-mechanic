@@ -22,6 +22,19 @@ describe('createApiAdapter', () => {
     expect(init.headers['x-dev-role']).toBe('customer');
   });
 
+  it('attaches a real session as an Authorization Bearer header instead of dev headers', async () => {
+    const fetchImpl = mockFetch(200, { data: [] });
+    const api = createApiAdapter({ baseUrl: 'http://api.test', accessToken: 'real-jwt-abc123', fetchImpl });
+
+    await api.listVehicles();
+
+    const call = (fetchImpl as ReturnType<typeof vi.fn>).mock.calls[0];
+    const init = call[1] as { headers: Record<string, string> };
+    expect(init.headers['authorization']).toBe('Bearer real-jwt-abc123');
+    expect(init.headers['x-dev-user-id']).toBeUndefined();
+    expect(init.headers['x-dev-role']).toBeUndefined();
+  });
+
   it('throws a typed ApiRequestError carrying field errors on a 422 response', async () => {
     const fetchImpl = mockFetch(422, {
       error: { code: 'VALIDATION_ERROR', message: 'Vehicle input is invalid.', fieldErrors: { year: ['Required'] }, requestId: 'req-1' }

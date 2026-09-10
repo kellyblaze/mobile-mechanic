@@ -84,6 +84,11 @@ export class ApiRequestError extends Error {
 export type ApiAdapterOptions = {
   baseUrl: string;
   actor?: DevActor;
+  // Real Supabase session access token. Live-verified against apps/api/src/server.ts's
+  // AUTH_MODE=managed preHandler hook: it accepts "Authorization: Bearer <token>", verifies it
+  // against the configured issuer/JWKS, and resolves the caller's id/role via `memberships` —
+  // no other request shape changes. Takes priority over `actor` when both are somehow set.
+  accessToken?: string;
   fetchImpl?: typeof fetch;
 };
 
@@ -94,7 +99,9 @@ export function createApiAdapter(options: ApiAdapterOptions) {
 
   async function request<T>(path: string, init: AdapterRequestInit = {}): Promise<T> {
     const headers: Record<string, string> = { 'content-type': 'application/json', ...(init.extraHeaders ?? {}) };
-    if (options.actor) {
+    if (options.accessToken) {
+      headers['authorization'] = `Bearer ${options.accessToken}`;
+    } else if (options.actor) {
       headers['x-dev-user-id'] = options.actor.userId;
       headers['x-dev-role'] = options.actor.role;
     }

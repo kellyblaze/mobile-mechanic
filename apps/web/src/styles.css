@@ -146,6 +146,24 @@ a {
   padding: var(--space-1) var(--space-2);
 }
 
+/* "Sign out" (RealSessionBar) and "Sign in with a real account" (DevSessionBar) — without this,
+   the generic gold pill `button` rule (min-height 44px) looks oversized in this thin, muted bar. */
+.dev-session-bar a,
+.dev-session-bar button {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-accent-text);
+  background: transparent;
+  border: none;
+  min-height: auto;
+  padding: 0;
+}
+
+.dev-session-bar a:hover,
+.dev-session-bar button:hover {
+  text-decoration: underline;
+}
+
 .app-header {
   display: flex;
   align-items: center;
