@@ -7,9 +7,21 @@ import { useInViewOnce } from '../hooks.js';
 import { ErrorPanel, StatusBadge, ValidationErrors } from '../components/shared.js';
 
 export function RepairRoom({ api, actorKey }: { api: ApiAdapter; actorKey: ActorKey }) {
-  const { id = 'job-1' } = useParams();
+  // Fallback matches the real seeded job id (packages/database/src/seed.ts) — the old "job-1"
+  // fixture id no longer resolves under real Postgres persistence (verified live: 403s).
+  const { id = '44444444-4444-4444-8444-444444444444' } = useParams();
   const queryClient = useQueryClient();
   const job = useQuery({ queryKey: ['job', id, actorKey], queryFn: () => api.getJob(id) });
+  // Job now carries a real quoteId (CR-002, resolved) — fetched unconditionally with `enabled`
+  // gating it, not inside a conditional after the early returns below, since hooks can't be
+  // called conditionally. quoteId is undefined until `job` resolves, so this simply doesn't fire
+  // until there's a real id to fetch.
+  const quoteId = job.data?.data.quoteId;
+  const quote = useQuery({
+    queryKey: ['quote', quoteId, actorKey],
+    queryFn: () => api.getQuote(quoteId as string),
+    enabled: Boolean(quoteId)
+  });
   const findings = useQuery({ queryKey: ['findings', id, actorKey], queryFn: () => api.listFindings(id) });
   const messages = useQuery({ queryKey: ['messages', id, actorKey], queryFn: () => api.listMessages(id) });
   const [message, setMessage] = useState('');
@@ -18,22 +30,28 @@ export function RepairRoom({ api, actorKey }: { api: ApiAdapter; actorKey: Actor
   // every other hook — conditionally calling hooks after an early return breaks React's rules.
   const { ref: headingRef, isInView: headingInView } = useInViewOnce<HTMLHeadingElement>();
 
-  // The contract has no GET /quotes/{id} and Job carries no linked quote id/version (see
-  // docs/integration-status.md and the CR-002 note below), so "quote-1" / expectedVersion 1 are
-  // the only real values available in this checkpoint, not invented ones — they match the
-  // backend's seeded fixture exactly. Once accepted, hide the action instead of letting a second
-  // click retry a version we already know is stale.
+  // quoteId/expectedVersion now come from the real fetched quote (CR-002 resolved), not
+  // hardcoded — this also means a 409 is genuinely recoverable now: invalidating the quote query
+  // on error re-fetches the actual current version, so a retry uses real data instead of the
+  // same stale guess. Once accepted, hide the action instead of letting a second click retry.
   const acceptQuote = useMutation({
     mutationFn: (input: { quoteId: string; expectedVersion: number }) =>
       api.acceptQuote(input.quoteId, { expectedVersion: input.expectedVersion, idempotencyKey: crypto.randomUUID() }),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['job', id, actorKey] })
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['job', id, actorKey] });
+      void queryClient.invalidateQueries({ queryKey: ['quote', quoteId, actorKey] });
+    },
+    onError: () => void queryClient.invalidateQueries({ queryKey: ['quote', quoteId, actorKey] })
   });
 
   if (job.isPending) return <p role="status">Loading Repair Room&hellip;</p>;
   if (job.isError) return <ErrorPanel error={job.error} onRetry={() => job.refetch()} />;
 
   const record = job.data.data;
-  const canOfferApproval = record.allowedActions.includes('approve_change_order') && !acceptQuote.isSuccess;
+  // allowedActions is optional on the real API (verified live: a freshly seeded job's response
+  // omits it entirely) — default to an empty array rather than assuming it's always present.
+  const allowedActions = record.allowedActions ?? [];
+  const canOfferApproval = allowedActions.includes('approve_change_order') && !acceptQuote.isSuccess && Boolean(quote.data);
 
   return (
     <section aria-labelledby="repair-room-heading">
@@ -47,14 +65,20 @@ export function RepairRoom({ api, actorKey }: { api: ApiAdapter; actorKey: Actor
       <p>
         Status: <StatusBadge status={record.status} /> &middot; version {record.version}
       </p>
-      <p>Allowed actions: {record.allowedActions.length ? record.allowedActions.join(', ') : 'none yet'}</p>
+      <p>Allowed actions: {allowedActions.length ? allowedActions.join(', ') : 'none yet'}</p>
 
-      {canOfferApproval && (
+      {quote.isPending && quoteId && <p role="status">Loading quote&hellip;</p>}
+      {quote.isError && <ErrorPanel error={quote.error} onRetry={() => quote.refetch()} />}
+      {canOfferApproval && quote.data && (
         <button
-          onClick={() => acceptQuote.mutate({ quoteId: 'quote-1', expectedVersion: 1 })}
+          onClick={() =>
+            acceptQuote.mutate({ quoteId: quote.data.data.id, expectedVersion: quote.data.data.version })
+          }
           disabled={acceptQuote.isPending}
         >
-          {acceptQuote.isPending ? 'Approving…' : 'Approve pending quote (quote-1)'}
+          {acceptQuote.isPending
+            ? 'Approving…'
+            : `Approve quote — $${(quote.data.data.totalMinor / 100).toFixed(2)}`}
         </button>
       )}
       {acceptQuote.isError && <ValidationErrors error={acceptQuote.error} isQuoteApproval />}

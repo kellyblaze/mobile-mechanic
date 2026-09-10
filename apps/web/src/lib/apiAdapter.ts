@@ -13,7 +13,19 @@ export type DevActor = { userId: string; role: 'customer' | 'mechanic' | 'admin'
 
 export type Service = { id: string; name: string; delivery: string[]; pricingPath: string };
 export type Vehicle = { id: string; customerId?: string; year: number; make: string; model: string; mileage?: number; vin?: string };
-export type Job = { id: string; customerId?: string; mechanicId?: string; vehicleId?: string; quoteId?: string; status: string; version: number; allowedActions: string[] };
+// allowedActions is optional, not required: live-verified against the real Postgres-backed
+// GET /jobs/{id} (persistence:"postgres") on 2026-09-10 — the response omits it entirely for a
+// freshly seeded job, so treating it as always-present would crash real (not just fixture) data.
+export type Job = {
+  id: string;
+  customerId?: string;
+  mechanicId?: string;
+  vehicleId?: string;
+  quoteId?: string;
+  status: string;
+  version: number;
+  allowedActions?: string[];
+};
 export type Quote = { id: string; customerId?: string; status: string; version: number; currency: string; totalMinor: number; lines: { description: string; amountMinor: number }[] };
 export type Session = { user: { id: string; role: string }; capabilities: string[] };
 
@@ -86,6 +98,7 @@ export function createApiAdapter(options: ApiAdapterOptions) {
     createVehicle: (input: { year: number; make: string; model: string; mileage?: number; vin?: string }) =>
       request<{ data: Vehicle }>('/vehicles', { method: 'POST', body: input }),
     getJob: (id: string) => request<{ data: Job }>(`/jobs/${id}`),
+    getQuote: (id: string) => request<{ data: Quote }>(`/quotes/${id}`),
     getVehicleHistory: (id: string) => request<{ data: Record<string, unknown>[] }>(`/vehicles/${id}/history`),
     createServiceRequest: (input: { vehicleId: string; category: string; symptoms: string[]; notes?: string; attachmentIds?: string[] }) => request<{ data: Record<string, unknown> }>('/service-requests', { method: 'POST', body: input }),
     initiateUpload: (input: { fileName: string; contentType: string; sizeBytes: number }) => request<{ data: Record<string, unknown> }>('/uploads', { method: 'POST', body: input }),

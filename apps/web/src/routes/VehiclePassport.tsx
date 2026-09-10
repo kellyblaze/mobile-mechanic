@@ -9,12 +9,17 @@ import { ErrorPanel } from '../components/shared.js';
 // Vehicles) rather than a per-vehicle fetch — there is no GET /vehicles/{id} in the contract,
 // only GET /vehicles (list), so this looks the vehicle up client-side from the already-fetched
 // list. That also means navigating here from My Garage is instant (shared cache), and landing
-// here directly still works (React Query fetches the list fresh). Service history is honestly
-// marked pending (GET /vehicles/{id}/history isn't published — see CR-003) rather than showing
-// fabricated records.
+// here directly still works (React Query fetches the list fresh). Service history is real now
+// (CR-003 resolved — GET /vehicles/{id}/history), fetched unconditionally alongside the vehicle
+// list rather than after the not-found early return below, since hooks can't be conditional.
 export function VehiclePassport({ api, actorKey }: { api: ApiAdapter; actorKey: ActorKey }) {
   const { id } = useParams();
   const vehicles = useQuery({ queryKey: ['vehicles', actorKey], queryFn: () => api.listVehicles() });
+  const history = useQuery({
+    queryKey: ['vehicle-history', id, actorKey],
+    queryFn: () => api.getVehicleHistory(id as string),
+    enabled: Boolean(id)
+  });
   const { ref: headingRef, isInView: headingInView } = useInViewOnce<HTMLHeadingElement>();
 
   if (vehicles.isPending) return <p role="status">Loading vehicle&hellip;</p>;
@@ -71,11 +76,21 @@ export function VehiclePassport({ api, actorKey }: { api: ApiAdapter; actorKey: 
       </ul>
 
       <h2>Service history</h2>
-      <p className="pending-note">
-        Service history isn&rsquo;t published in the API contract yet (see docs/change-requests/CR-003.md) —
-        this section will show real inspection, repair, and warranty records once{' '}
-        <code>GET /vehicles/{'{id}'}/history</code> ships. Nothing here is fabricated in the meantime.
-      </p>
+      {history.isPending && <p role="status">Loading service history&hellip;</p>}
+      {history.isError && <ErrorPanel error={history.error} onRetry={() => history.refetch()} />}
+      {history.data && history.data.data.length === 0 && (
+        <p className="pending-note">No completed service history yet for this vehicle.</p>
+      )}
+      {history.data && history.data.data.length > 0 && (
+        <ul className="service-list">
+          {history.data.data.map((entry, index) => (
+            <li key={String(entry.id ?? index)} className="service-card">
+              <strong>{String(entry.description ?? entry.summary ?? 'Service record')}</strong>
+              <span>{String(entry.completedAt ?? entry.date ?? '')}</span>
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   );
 }

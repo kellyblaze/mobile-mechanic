@@ -29,7 +29,14 @@ function PrimaryNav() {
       <NavLink to="/vehicles" className={({ isActive }) => (isActive ? 'active' : undefined)}>
         My Garage
       </NavLink>
-      <NavLink to="/jobs/job-1" className={({ isActive }) => (isActive ? 'active' : undefined)}>
+      {/* Hardcoded seeded job id (packages/database/src/seed.ts) — the contract has no
+          "list my jobs" endpoint for customers, so there's no real id to discover dynamically
+          yet. The old "job-1" fixture id stopped resolving once persistence moved to real
+          Postgres (verified live: it now 403s for customer-demo). */}
+      <NavLink
+        to="/jobs/44444444-4444-4444-8444-444444444444"
+        className={({ isActive }) => (isActive ? 'active' : undefined)}
+      >
         Repair Room
       </NavLink>
       <span
