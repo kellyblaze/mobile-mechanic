@@ -35,6 +35,11 @@ export type Invoice = {
   jobId?: string;
   customerId?: string;
   currency: string;
+  // Typed number, but live-verified the real API actually returns this as a JSON string (e.g.
+  // "12000" — Postgres bigint serialized through node-postgres). Division/display coerce it fine
+  // (`totalMinor / 100` works via JS's loose numeric coercion), but JSON.stringify does not — any
+  // call site that re-sends this value in a request body must Number(...) it first. See
+  // PayInvoice.tsx's createPayment call, which hit this as a real 422 before the fix.
   totalMinor: number;
   status: string;
   dueAt?: string;
@@ -78,10 +83,12 @@ export type Membership = { userId: string; businessId: string; role: 'customer' 
 // clientSecret is what Stripe Elements needs to actually collect and confirm payment client-side.
 export type PaymentIntent = { id: string; clientSecret: string; status: string };
 export type Refund = { id: string; status: string };
-// GET /availability response — {data, available} where `data` lists conflicting appointments in
-// the requested window (empty when free) and `available` is the convenience boolean. Confirmed
-// live via curl on 2026-09-10 against a real free window (no response schema in openapi.yaml).
-export type AvailabilityConflict = { id: string; startsAt: string; endsAt: string; status: string };
+// GET /availability response — {data, available} where `data` lists conflicting appointments AND
+// active booking holds in the requested window (empty when free) and `available` is the
+// convenience boolean. `source` added when CR-012 shipped — holds now count toward availability,
+// not just appointments (live-verified: holding a slot then re-checking it now correctly returns
+// available: false). Confirmed live via curl (no response schema in openapi.yaml).
+export type AvailabilityConflict = { id: string; startsAt: string; endsAt: string; status: string; source: 'appointment' | 'booking_hold' };
 export type AvailabilityCheck = { data: AvailabilityConflict[]; available: boolean };
 // POST /booking-holds response — confirmed live via curl on 2026-09-10 against
 // packages/database/src/repositories.ts's createBookingRepository.createHold.
@@ -94,6 +101,15 @@ export type BookingHold = {
   expiresAt: string;
   status: string;
 };
+// POST /booking-holds/{id}/confirm response — CR-012, resolved: confirming a hold now really
+// does create both a confirmed appointment and a scheduled job in one transaction. Confirmed by
+// reading createBookingRepository.confirmHold directly.
+export type Appointment = { id: string; customerId: string; mechanicId: string; startsAt: string; endsAt: string; status: string; holdId: string };
+export type BookingConfirmation = { appointment: Appointment; job: Job };
+// GET /mechanics response — CR-011, resolved. displayName is literally the mechanic's email
+// today (read createBookingRepository.listMechanics directly) — not a real display name, but the
+// real field the API returns.
+export type Mechanic = { id: string; displayName: string };
 
 export type ApiErrorBody = { error: { code: string; message: string; fieldErrors?: Record<string, string[]>; requestId: string } };
 
@@ -141,7 +157,12 @@ export function createApiAdapter(options: ApiAdapterOptions) {
   const f = options.fetchImpl ?? fetch;
 
   async function request<T>(path: string, init: AdapterRequestInit = {}): Promise<T> {
-    const headers: Record<string, string> = { 'content-type': 'application/json', ...(init.extraHeaders ?? {}) };
+    // content-type: application/json only when there's actually a body — confirmBookingHold and
+    // refundPayment are POSTs with no body. Sending the header anyway made Fastify's strict JSON
+    // parser reject the empty body outright: found live via confirmBookingHold, which failed with
+    // a real 500 ("Body cannot be empty when content-type is set to 'application/json'",
+    // FST_ERR_CTP_EMPTY_JSON_BODY) until this was fixed.
+    const headers: Record<string, string> = { ...(init.body !== undefined ? { 'content-type': 'application/json' } : {}), ...(init.extraHeaders ?? {}) };
     if (options.accessToken) {
       headers['authorization'] = `Bearer ${options.accessToken}`;
     } else if (options.actor) {
@@ -220,10 +241,10 @@ export function createApiAdapter(options: ApiAdapterOptions) {
     // process outside this app (see docs/change-requests/CR-007.md).
     provisionMembership: (input: { email: string; role: 'customer' | 'mechanic' | 'admin' }) =>
       request<{ data: Membership }>('/admin/memberships', { method: 'POST', body: input }),
-    // Customer-only. See docs/change-requests/CR-009.md: there's no invoiceId field here because
-    // the contract doesn't have one yet — this creates a standalone Stripe PaymentIntent, not
-    // one tied server-side to a specific invoice.
-    createPayment: (input: { amountMinor: number; currency: string; idempotencyKey: string }) =>
+    // Customer-only. CR-009, resolved: invoiceId now links the PaymentIntent server-side — the
+    // API rejects it if it isn't this customer's open invoice for the exact amount/currency, and
+    // the Stripe webhook marks the invoice paid on success.
+    createPayment: (input: { invoiceId?: string; amountMinor: number; currency: string; idempotencyKey: string }) =>
       request<{ data: PaymentIntent }>('/payments', { method: 'POST', body: input }),
     // Admin-only.
     refundPayment: (id: string, idempotencyKey: string) =>
@@ -234,10 +255,17 @@ export function createApiAdapter(options: ApiAdapterOptions) {
       request<AvailabilityCheck>(
         `/availability?mechanicId=${encodeURIComponent(query.mechanicId)}&startsAt=${encodeURIComponent(query.startsAt)}&endsAt=${encodeURIComponent(query.endsAt)}`
       ),
-    // Customer-only. See docs/change-requests/CR-012.md: creating a hold doesn't produce a real
-    // appointment yet — nothing converts booking_holds into appointments.
     createBookingHold: (input: { mechanicId: string; startsAt: string; endsAt: string; expiresAt: string; idempotencyKey: string }) =>
-      request<{ data: BookingHold }>('/booking-holds', { method: 'POST', body: input })
+      request<{ data: BookingHold }>('/booking-holds', { method: 'POST', body: input }),
+    // Customer-only. CR-012, resolved: confirms an active, unexpired hold into a real appointment
+    // + job. 409 if the hold is expired, already converted, or otherwise invalid.
+    confirmBookingHold: (holdId: string) =>
+      request<{ data: BookingConfirmation }>(`/booking-holds/${holdId}/confirm`, { method: 'POST' }),
+    // CR-011, resolved.
+    listMechanics: () => request<{ data: Mechanic[] }>('/mechanics'),
+    // Admin-only. CR-010, resolved.
+    createInvoiceForJob: (jobId: string, input: { currency: string; totalMinor: number }) =>
+      request<{ data: Invoice }>(`/admin/jobs/${jobId}/invoices`, { method: 'POST', body: input })
   };
 }
 

@@ -40,9 +40,8 @@ function ConfirmPaymentForm({ onDone }: { onDone: () => void }) {
       <div role="status">
         <p>Payment submitted successfully.</p>
         <p className="pending-note">
-          This invoice may not show as paid right away &mdash; there&rsquo;s no automatic link
-          yet between a payment and the invoice it&rsquo;s for (see
-          docs/change-requests/CR-009.md).
+          The invoice updates to paid once Stripe confirms the charge (a webhook event, not
+          instant) &mdash; it may take a moment to reflect here.
         </p>
       </div>
     );
@@ -72,7 +71,11 @@ export function PayInvoice({ api, actorKey }: { api: ApiAdapter; actorKey: Actor
   const startPayment = useMutation({
     mutationFn: () => {
       if (!invoice) throw new Error('Invoice not loaded.');
-      return api.createPayment({ amountMinor: invoice.totalMinor, currency: invoice.currency, idempotencyKey: crypto.randomUUID() });
+      // Number(...): live-verified the real API returns totalMinor as a JSON string (e.g. "12000"),
+      // despite the Invoice type declaring it a number — division/display coerce it fine, but
+      // JSON.stringify does not, so sending it unconverted produced a real 422 from the server's
+      // z.number() check on amountMinor. Confirmed by reproducing this exact failure live.
+      return api.createPayment({ invoiceId: invoice.id, amountMinor: Number(invoice.totalMinor), currency: invoice.currency, idempotencyKey: crypto.randomUUID() });
     }
   });
 

@@ -286,4 +286,60 @@ describe('createApiAdapter', () => {
       idempotencyKey: 'idem-12345678'
     });
   });
+
+  it('confirms a booking hold with no request body', async () => {
+    const fetchImpl = mockFetch(201, {
+      data: {
+        appointment: { id: 'appt-1', customerId: 'cust-1', mechanicId: 'mech-1', startsAt: '2026-09-15T14:00:00.000Z', endsAt: '2026-09-15T15:00:00.000Z', status: 'confirmed', holdId: 'hold-1' },
+        job: { id: 'job-1', customerId: 'cust-1', mechanicId: 'mech-1', status: 'scheduled', version: 1 }
+      }
+    });
+    const api = createApiAdapter({ baseUrl: 'http://api.test', actor: { userId: 'customer-demo', role: 'customer' }, fetchImpl });
+
+    const result = await api.confirmBookingHold('hold-1');
+
+    const call = (fetchImpl as ReturnType<typeof vi.fn>).mock.calls[0];
+    const [url, init] = call as [string, { method: string; headers: Record<string, string> }];
+    expect(url).toBe('http://api.test/booking-holds/hold-1/confirm');
+    expect(init.method).toBe('POST');
+    // Regression: sending content-type: application/json with no body made Fastify's strict JSON
+    // parser reject the request outright (found live via this exact call — see apiAdapter.ts).
+    expect(init.headers['content-type']).toBeUndefined();
+    expect(result.data.job.status).toBe('scheduled');
+  });
+
+  it('lists mechanics', async () => {
+    const fetchImpl = mockFetch(200, { data: [{ id: 'mech-1', displayName: 'mechanic-demo@local.test' }] });
+    const api = createApiAdapter({ baseUrl: 'http://api.test', actor: { userId: 'customer-demo', role: 'customer' }, fetchImpl });
+
+    const result = await api.listMechanics();
+
+    const call = (fetchImpl as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe('http://api.test/mechanics');
+    expect(result.data).toHaveLength(1);
+  });
+
+  it('creates an invoice for a job', async () => {
+    const fetchImpl = mockFetch(201, { data: { id: 'inv-1', jobId: 'job-1', customerId: 'cust-1', currency: 'USD', totalMinor: 9900, status: 'open' } });
+    const api = createApiAdapter({ baseUrl: 'http://api.test', actor: { userId: 'admin-demo', role: 'admin' }, fetchImpl });
+
+    await api.createInvoiceForJob('job-1', { currency: 'USD', totalMinor: 9900 });
+
+    const call = (fetchImpl as ReturnType<typeof vi.fn>).mock.calls[0];
+    const [url, init] = call as [string, { method: string; body: string }];
+    expect(url).toBe('http://api.test/admin/jobs/job-1/invoices');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body)).toEqual({ currency: 'USD', totalMinor: 9900 });
+  });
+
+  it('includes invoiceId in the payment request when provided', async () => {
+    const fetchImpl = mockFetch(201, { data: { id: 'pi_1', clientSecret: 'pi_1_secret_abc', status: 'requires_payment_method' } });
+    const api = createApiAdapter({ baseUrl: 'http://api.test', actor: { userId: 'customer-demo', role: 'customer' }, fetchImpl });
+
+    await api.createPayment({ invoiceId: 'inv-1', amountMinor: 9900, currency: 'USD', idempotencyKey: 'idem-12345678' });
+
+    const call = (fetchImpl as ReturnType<typeof vi.fn>).mock.calls[0];
+    const init = call[1] as { body: string };
+    expect(JSON.parse(init.body)).toEqual({ invoiceId: 'inv-1', amountMinor: 9900, currency: 'USD', idempotencyKey: 'idem-12345678' });
+  });
 });

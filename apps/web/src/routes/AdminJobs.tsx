@@ -44,6 +44,7 @@ export function AdminJobs({ api, actorKey }: { api: ApiAdapter; actorKey: ActorK
                 </div>
                 <StatusBadge status={job.status} />
               </Link>
+              <Link to={`/admin/jobs/${job.id}/invoice`}>Issue invoice</Link>
             </li>
           ))}
         </ul>

@@ -13,6 +13,7 @@ import { MechanicJobs } from './routes/MechanicJobs.js';
 import { AdminJobs } from './routes/AdminJobs.js';
 import { AdminIssueQuote } from './routes/AdminIssueQuote.js';
 import { AdminProvisionMembership } from './routes/AdminProvisionMembership.js';
+import { AdminIssueInvoice } from './routes/AdminIssueInvoice.js';
 import { PayInvoice } from './routes/PayInvoice.js';
 import { Booking } from './routes/Booking.js';
 import { SignIn } from './routes/SignIn.js';
@@ -201,6 +202,7 @@ export default function App() {
               <Route path="/admin/jobs" element={<AdminJobs api={api} actorKey={effectiveActorKey} />} />
               <Route path="/admin/quotes/new" element={<AdminIssueQuote api={api} actorKey={effectiveActorKey} />} />
               <Route path="/admin/memberships/new" element={<AdminProvisionMembership api={api} />} />
+              <Route path="/admin/jobs/:id/invoice" element={<AdminIssueInvoice api={api} />} />
             </Routes>
           )}
         </div>
