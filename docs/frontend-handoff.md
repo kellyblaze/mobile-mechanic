@@ -1,28 +1,98 @@
-# Frontend handoff
+# Frontend handoff — Claude source of truth
 
-Repository: `E:\Projects\Mobile Mechanic`  
-Branch: see `git branch --show-current`  
-Commit SHA: `112f989b33d01fa9c7abf531ccdc369b8484ba40`  
-Contract: `1.0.0`, `packages/contracts/openapi.yaml`
+Repository: E:\Projects\Mobile Mechanic
+Branch: feature/issue-2-backend-completion
+Backend handoff commit: 90e07833f043a7f7167672b0d64039d48cb04a51
+Contract version: 1.2.0
+Canonical contract: packages/contracts/openapi.yaml
+Generated client: packages/contracts/generated/client.ts
 
-## Claude ownership
+## Ownership and non-overlap
 
-Claude may modify `apps/web` and add frontend-only files under `packages/ui`. Claude must not modify `apps/api`, `packages/domain`, `packages/database`, `packages/contracts/openapi.yaml`, generated client files, migrations, root package manager configuration, or auth/authorization rules.
+Claude may modify only:
 
-## Run modes
+- apps/web/**
+- frontend-only files under packages/ui/**
+- frontend tests and frontend assets
 
-Run `pnpm install`, then `pnpm dev`. The API is at `http://127.0.0.1:3000`. Use `pnpm api:mock` for explicitly enabled fixture mode. The dev session headers are `X-Dev-User-Id: customer-demo` and `X-Dev-Role: customer`; safe staff values are `mechanic-demo`/`mechanic` and `admin-demo`/`admin`. No real credentials or messages are used.
+Claude must not modify:
 
-## Required screens and operations
+- apps/api/**, packages/database/**, packages/domain/**
+- packages/contracts/openapi.yaml
+- packages/contracts/generated/** or packages/contracts/fixtures/**
+- packages/database/migrations/**
+- root package.json, pnpm-lock.yaml, authentication, authorization, or backend business rules
+- .env or any secret-bearing file
 
-Homepage/intake/catalog: `GET /service-catalog`; vehicle flow: `GET/POST /vehicles`; quote review/approval: `GET/POST /quotes/{id}/accept`; Repair Room: `GET /jobs/{id}`. Availability, booking, messages, findings, change orders, completion, invoices, payments, admin queues, and Vehicle Passport are required product screens but their backend operations remain pending and must use clearly labeled fixtures until published.
+Do not invent endpoints, fields, roles, statuses, prices, policies, credentials, or successful provider integrations. If a UI need is not covered by the contract, create docs/change-requests/CR-###.md and leave the UI in an honest pending/error state. Codex owns contract and backend changes.
 
-Every screen must implement loading, empty, validation, unauthorized, conflict/stale, offline, and server-error states. Use the generated client through one adapter; do not hard-code business rules or API field names.
+## Development
+
+From the repository root:
+
+    pnpm install
+    pnpm dev
+    pnpm --filter web dev
+
+API base URL: http://127.0.0.1:3000/api/v1
+
+Local development actors use explicit headers:
+
+    X-Dev-User-Id: customer-demo
+    X-Dev-Role: customer
+
+Other safe actors are mechanic-demo/mechanic and admin-demo/admin. This is not real login and must remain visibly development-only. Use pnpm api:mock only for explicit fixture mode. Never put service-role, Stripe secret, or Supabase secret values in frontend code.
+
+## Implemented operations
+
+Use the generated client through one frontend adapter.
+
+- Session/catalog: GET /session, GET /service-catalog
+- Vehicles: GET/POST /vehicles, GET /vehicles/{id}/history
+- Intake/uploads: POST /service-requests, POST /uploads
+- Quotes: GET /quotes/{id}, POST /quotes/{id}/accept, POST /admin/service-requests/{id}/quotes
+- Repair Room: GET/POST /jobs/{id}/findings, GET/POST /jobs/{id}/messages, GET /jobs/{id}
+- Jobs: GET /admin/jobs, GET /mechanic/jobs, POST /jobs/{id}/transitions, POST /jobs/{id}/completion-report
+- Scheduling: GET /availability, POST /booking-holds
+- Billing: GET /invoices, POST /payments, POST /payments/{id}/refund
+
+Payment UI must use the returned Stripe client secret and clearly distinguish test/development mode. Implemented does not mean all business policy or provider deployment work is complete.
+
+## Required frontend work
+
+Build accessible customer, mechanic, and admin flows for intake, garage, Vehicle Passport, quote review, availability, booking, Repair Room, invoices, payment confirmation, mechanic jobs, findings, messages, completion reports, admin queues, quote issuance, and refunds.
+
+Every screen must cover loading, empty, validation, unauthorized, conflict/stale-version, offline, and server-error states. Keep mock mode explicit and visibly labeled.
+
+## Verification
+
+Run:
+
+    pnpm typecheck
+    pnpm test
+    pnpm --filter web build
+
+The backend cleanup command is pnpm test:cleanup-users. It requires local service-role configuration and deletes only users whose email begins with codex-. Do not run it unless cleanup is intended.
 
 ## Contract changes
 
-Create `docs/change-requests/CR-###.md` with user need, proposed contract, compatibility, screens, and acceptance checks. Codex updates OpenAPI, client, fixtures, and version before Claude consumes a breaking or additive change.
+1. Create docs/change-requests/CR-###.md with the user need, exact schema/status change, compatibility impact, affected screens, and acceptance tests.
+2. Do not edit OpenAPI, migrations, generated files, server rules, or backend files in the frontend task.
+3. Tell Codex the request ID and blocked operation.
+4. Wait for a new contract version and regenerated client/fixtures.
 
-## Ready-to-paste kickoff
+## Ready-to-paste Claude prompt
 
-Read `AGENTS.md`, `CLAUDE.md`, `docs/product-build-agreement.md`, `docs/architecture.md`, this handoff, `docs/integration-status.md`, and `packages/contracts/openapi.yaml`. You own the frontend only. Confirm the branch/commit/contract version. Build the complete responsive, accessible customer, mechanic, and admin frontend in `apps/web`, starting with catalog → vehicle → quote → Repair Room. Use the generated client and fixtures through one adapter; keep mock mode explicit and visibly development-only. Do not edit backend-owned files or invent missing endpoints. For unavailable backend areas, implement honest pending/error states and file contract requests. Run typecheck/tests and return exact results.
+You are taking over the frontend only for the Mobile Mechanic repository.
+
+Read AGENTS.md, CLAUDE.md, docs/product-build-agreement.md, docs/architecture.md, docs/integration-status.md, docs/production-hardening.md, docs/frontend-handoff.md, packages/contracts/openapi.yaml, packages/contracts/generated/client.ts, and packages/contracts/fixtures/index.json.
+
+Work from branch feature/issue-2-backend-completion at backend handoff commit 90e07833f043a7f7167672b0d64039d48cb04a51. The API contract is version 1.2.0.
+
+Modify only apps/web and frontend-only packages/ui files. Do not modify backend, database, migrations, OpenAPI, generated client, fixtures, root tooling, environment secrets, authentication, authorization, or backend business rules. Use the generated client through one adapter. Do not invent endpoints or policies.
+
+Wire the implemented operations listed above and build the customer, mechanic, and admin screens. Include all required loading, empty, validation, unauthorized, conflict/stale, offline, and server-error states. Keep development/mock mode explicit and visibly labeled.
+
+If an operation is missing or its schema is insufficient, create docs/change-requests/CR-###.md and leave an honest pending/error state. Do not patch the backend.
+
+Run pnpm typecheck, pnpm test, and pnpm --filter web build. Report exact files changed, commands/results, unresolved contract requests, and the final commit SHA.
