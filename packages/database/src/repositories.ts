@@ -22,12 +22,14 @@ export function createBookingRepository(db: Database) {
         const rows = await client.query('INSERT INTO booking_holds (customer_id, mechanic_id, starts_at, ends_at, expires_at, status, idempotency_key) VALUES ($1,$2,$3,$4,$5,\'active\',$6) RETURNING id, customer_id AS "customerId", mechanic_id AS "mechanicId", starts_at AS "startsAt", ends_at AS "endsAt", expires_at AS "expiresAt", status', [input.customerId, input.mechanicId, input.startsAt, input.endsAt, input.expiresAt, input.idempotencyKey]);
         return rows.rows[0];
       });
-    }
+    },
+    async confirmHold(holdId: string, customerId: string) { return db.withTransaction(async (client) => { const hold = await client.query('SELECT * FROM booking_holds WHERE id = $1 AND customer_id = $2 FOR UPDATE', [holdId, customerId]); if (!hold.rows[0] || hold.rows[0].status !== 'active' || new Date(hold.rows[0].expires_at) <= new Date()) return null; const appointment = await client.query('INSERT INTO appointments (customer_id, mechanic_id, starts_at, ends_at, timezone, status, version, hold_id, idempotency_key) VALUES ($1,$2,$3,$4,\'America/New_York\',\'confirmed\',1,$5,$6) RETURNING id, customer_id AS "customerId", mechanic_id AS "mechanicId", starts_at AS "startsAt", ends_at AS "endsAt", status, hold_id AS "holdId"', [customerId, hold.rows[0].mechanic_id, hold.rows[0].starts_at, hold.rows[0].ends_at, holdId, `confirm-${holdId}`]); await client.query("UPDATE booking_holds SET status = 'converted' WHERE id = $1", [holdId]); return appointment.rows[0]; }); },
+    async listMechanics() { return db.query('SELECT u.id, u.email AS "displayName" FROM users u JOIN memberships m ON m.user_id = u.id WHERE m.role = \'mechanic\' ORDER BY u.email'); }
   };
 }
 
 export function createPaymentRepository(db: Database) {
-  return { async createAttempt(input: { customerId: string; amountMinor: number; currency: string; idempotencyKey: string }) { const rows = await db.query('INSERT INTO payment_attempts (customer_id, provider, amount_minor, currency, status, idempotency_key) VALUES ($1,\'stripe\',$2,$3,\'created\',$4) ON CONFLICT DO NOTHING RETURNING id, status, amount_minor AS "amountMinor", currency, idempotency_key AS "idempotencyKey"', [input.customerId, input.amountMinor, input.currency, input.idempotencyKey]); return rows[0]; } };
+  return { async createAttempt(input: { customerId: string; invoiceId?: string; amountMinor: number; currency: string; idempotencyKey: string }) { const rows = await db.query('INSERT INTO payment_attempts (customer_id, invoice_id, provider, amount_minor, currency, status, idempotency_key) VALUES ($1,$2,\'stripe\',$3,$4,\'created\',$5) ON CONFLICT DO NOTHING RETURNING id, status, invoice_id AS "invoiceId", amount_minor AS "amountMinor", currency, idempotency_key AS "idempotencyKey"', [input.customerId, input.invoiceId ?? null, input.amountMinor, input.currency, input.idempotencyKey]); return rows[0]; } };
 }
 
 export function createRepairRoomRepository(db: Database) {
@@ -40,7 +42,7 @@ export function createRepairRoomRepository(db: Database) {
 }
 
 export function createInvoiceRepository(db: Database) {
-  return { async listForCustomer(customerId: string) { return db.query('SELECT id, job_id AS "jobId", customer_id AS "customerId", currency, total_minor AS "totalMinor", status, due_at AS "dueAt", created_at AS "createdAt" FROM invoices WHERE customer_id = $1 ORDER BY created_at DESC', [customerId]); }, async getForCustomer(id: string, customerId: string) { const rows = await db.query('SELECT id, job_id AS "jobId", customer_id AS "customerId", currency, total_minor AS "totalMinor", status, due_at AS "dueAt", created_at AS "createdAt" FROM invoices WHERE id = $1 AND customer_id = $2', [id, customerId]); return rows[0]; } };
+  return { async listForCustomer(customerId: string) { return db.query('SELECT id, job_id AS "jobId", customer_id AS "customerId", currency, total_minor AS "totalMinor", status, due_at AS "dueAt", created_at AS "createdAt" FROM invoices WHERE customer_id = $1 ORDER BY created_at DESC', [customerId]); }, async getForCustomer(id: string, customerId: string) { const rows = await db.query('SELECT id, job_id AS "jobId", customer_id AS "customerId", currency, total_minor AS "totalMinor", status, due_at AS "dueAt", created_at AS "createdAt" FROM invoices WHERE id = $1 AND customer_id = $2', [id, customerId]); return rows[0]; }, async createForJob(jobId: string, currency: string, totalMinor: number) { const rows = await db.query('INSERT INTO invoices (job_id, customer_id, currency, total_minor, status) SELECT j.id, j.customer_id, $2, $3, \'open\' FROM jobs j WHERE j.id = $1 RETURNING id, job_id AS "jobId", customer_id AS "customerId", currency, total_minor AS "totalMinor", status, due_at AS "dueAt", created_at AS "createdAt"', [jobId, currency, totalMinor]); return rows[0]; } };
 }
 
 export function createQuoteJobRepository(db: Database) {

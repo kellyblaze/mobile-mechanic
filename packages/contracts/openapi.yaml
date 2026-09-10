@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Mobile Mechanic API
-  version: 1.4.0
+  version: 1.6.0
   description: Contract v1.0.0. Development adapters are explicitly marked in responses.
 servers:
   - url: http://127.0.0.1:3000/api/v1
@@ -15,6 +15,10 @@ paths:
     get: {operationId: getAvailability, tags: [jobs], security: [{devSession: []}], parameters: [{in: query, name: mechanicId, required: true, schema: {type: string}}, {in: query, name: startsAt, required: true, schema: {type: string, format: date-time}}, {in: query, name: endsAt, required: true, schema: {type: string, format: date-time}}], responses: {'200': {description: Availability}, '422': {$ref: '#/components/responses/Validation'}}}
   /booking-holds:
     post: {operationId: createBookingHold, tags: [jobs], security: [{devSession: []}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/BookingHoldInput'}}}}, responses: {'201': {description: Booking hold}, '409': {$ref: '#/components/responses/Conflict'}}}
+  /booking-holds/{id}/confirm:
+    post: {operationId: confirmBookingHold, tags: [jobs], security: [{devSession: []}], parameters: [{in: path, name: id, required: true, schema: {type: string}}], responses: {'201': {description: Confirmed appointment}, '409': {$ref: '#/components/responses/Conflict'}}}
+  /mechanics:
+    get: {operationId: listMechanics, tags: [jobs], security: [{devSession: []}], responses: {'200': {description: Mechanics}}}
   /vehicles:
     get: {operationId: listVehicles, tags: [vehicles], security: [{devSession: []}], responses: {'200': {description: Vehicles}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}}}
     post: {operationId: createVehicle, tags: [vehicles], security: [{devSession: []}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/VehicleInput'}}}}, responses: {'201': {description: Created}, '422': {$ref: '#/components/responses/Validation'}}}
@@ -44,6 +48,8 @@ paths:
     post: {operationId: completeJob, tags: [jobs], security: [{devSession: []}], parameters: [{in: path, name: id, required: true, schema: {type: string}}], requestBody: {required: true, content: {application/json: {schema: {type: object, required: [summary], properties: {summary: {type: string}}}}}}, responses: {'200': {description: Completion report}}}
   /invoices:
     get: {operationId: listInvoices, tags: [quotes], security: [{devSession: []}], responses: {'200': {description: Customer invoices}}}
+  /admin/jobs/{id}/invoices:
+    post: {operationId: createInvoice, tags: [quotes], security: [{devSession: []}], parameters: [{in: path, name: id, required: true, schema: {type: string}}], requestBody: {required: true, content: {application/json: {schema: {type: object, required: [currency, totalMinor], properties: {currency: {type: string}, totalMinor: {type: integer, minimum: 0}}}}}}, responses: {'201': {description: Invoice}, '403': {$ref: '#/components/responses/Forbidden'}}}
   /admin/jobs:
     get: {operationId: listAdminJobs, tags: [jobs], security: [{devSession: []}], responses: {'200': {description: Operational jobs}}}
   /admin/service-requests:
@@ -53,7 +59,7 @@ paths:
   /mechanic/jobs:
     get: {operationId: listMechanicJobs, tags: [jobs], security: [{devSession: []}], responses: {'200': {description: Assigned jobs}}}
   /payments:
-    post: {operationId: createPayment, tags: [quotes], security: [{devSession: []}], responses: {'201': {description: Payment intent}, '503': {description: Payment provider unavailable}}}
+    post: {operationId: createPayment, tags: [quotes], security: [{devSession: []}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/PaymentInput'}}}}, responses: {'201': {description: Payment intent}, '503': {description: Payment provider unavailable}}}
   /payments/{id}/refund:
     post: {operationId: refundPayment, tags: [quotes], security: [{devSession: []}], parameters: [{in: path, name: id, required: true, schema: {type: string}}], responses: {'200': {description: Refund}}}
 components:
@@ -70,6 +76,7 @@ components:
     JobTransition: {type: object, required: [expectedVersion, status], properties: {expectedVersion: {type: integer}, status: {type: string}}}
     BookingHoldInput: {type: object, required: [mechanicId, startsAt, endsAt, expiresAt, idempotencyKey], properties: {mechanicId: {type: string}, startsAt: {type: string, format: date-time}, endsAt: {type: string, format: date-time}, expiresAt: {type: string, format: date-time}, idempotencyKey: {type: string, minLength: 8}}}
     MembershipInput: {type: object, required: [email, role], properties: {email: {type: string, format: email}, role: {type: string, enum: [customer, mechanic, admin]}}}
+    PaymentInput: {type: object, required: [amountMinor, currency, idempotencyKey], properties: {invoiceId: {type: string}, amountMinor: {type: integer, minimum: 1}, currency: {type: string, minLength: 3, maxLength: 3}, idempotencyKey: {type: string, minLength: 8}}}
     ServiceList: {type: object, properties: {data: {type: array, items: {type: object}}, meta: {type: object}}}
   responses:
     Unauthorized: {description: Unauthenticated, content: {application/json: {schema: {$ref: '#/components/schemas/ApiError'}}}}
