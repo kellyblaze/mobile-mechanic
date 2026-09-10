@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ApiAdapter } from '../lib/apiAdapter.js';
 import type { ActorKey } from '../lib/devActors.js';
@@ -248,6 +248,7 @@ export function RepairRoom({ api, actorKey }: { api: ApiAdapter; actorKey: Actor
                         ${(invoice.totalMinor / 100).toFixed(2)} {invoice.currency} &mdash; <StatusBadge status={invoice.status} />
                       </strong>
                       {invoice.dueAt && <span>Due {new Date(invoice.dueAt).toLocaleDateString()}</span>}
+                      {invoice.status === 'open' && <Link to={`/invoices/${invoice.id}/pay`}>Pay</Link>}
                     </li>
                   ))}
                 </ul>

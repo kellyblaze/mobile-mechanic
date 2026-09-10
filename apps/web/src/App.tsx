@@ -13,6 +13,7 @@ import { MechanicJobs } from './routes/MechanicJobs.js';
 import { AdminJobs } from './routes/AdminJobs.js';
 import { AdminIssueQuote } from './routes/AdminIssueQuote.js';
 import { AdminProvisionMembership } from './routes/AdminProvisionMembership.js';
+import { PayInvoice } from './routes/PayInvoice.js';
 import { SignIn } from './routes/SignIn.js';
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? 'http://127.0.0.1:3000/api/v1';
@@ -190,6 +191,7 @@ export default function App() {
               <Route path="/vehicles/:id" element={<VehiclePassport api={api} actorKey={effectiveActorKey} />} />
               <Route path="/intake/:category" element={<Intake api={api} actorKey={effectiveActorKey} />} />
               <Route path="/jobs/:id" element={<RepairRoom api={api} actorKey={effectiveActorKey} />} />
+              <Route path="/invoices/:id/pay" element={<PayInvoice api={api} actorKey={effectiveActorKey} />} />
               <Route path="/mechanic/jobs" element={<MechanicJobs api={api} actorKey={effectiveActorKey} />} />
               <Route path="/admin/jobs" element={<AdminJobs api={api} actorKey={effectiveActorKey} />} />
               <Route path="/admin/quotes/new" element={<AdminIssueQuote api={api} actorKey={effectiveActorKey} />} />

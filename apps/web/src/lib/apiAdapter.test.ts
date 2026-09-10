@@ -219,4 +219,31 @@ describe('createApiAdapter', () => {
     expect(init.method).toBe('POST');
     expect(JSON.parse(init.body)).toEqual({ email: 'a@example.com', role: 'customer' });
   });
+
+  it('creates a payment intent with amount, currency, and idempotency key', async () => {
+    const fetchImpl = mockFetch(201, { data: { id: 'pi_1', clientSecret: 'pi_1_secret_abc', status: 'requires_payment_method' } });
+    const api = createApiAdapter({ baseUrl: 'http://api.test', actor: { userId: 'customer-demo', role: 'customer' }, fetchImpl });
+
+    const result = await api.createPayment({ amountMinor: 5000, currency: 'USD', idempotencyKey: 'idem-12345678' });
+
+    const call = (fetchImpl as ReturnType<typeof vi.fn>).mock.calls[0];
+    const [url, init] = call as [string, { method: string; body: string }];
+    expect(url).toBe('http://api.test/payments');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body)).toEqual({ amountMinor: 5000, currency: 'USD', idempotencyKey: 'idem-12345678' });
+    expect(result.data.clientSecret).toBe('pi_1_secret_abc');
+  });
+
+  it('sends the Idempotency-Key header when refunding a payment', async () => {
+    const fetchImpl = mockFetch(200, { data: { id: 're_1', status: 'succeeded' } });
+    const api = createApiAdapter({ baseUrl: 'http://api.test', actor: { userId: 'admin-demo', role: 'admin' }, fetchImpl });
+
+    await api.refundPayment('pi_1', 'idem-87654321');
+
+    const call = (fetchImpl as ReturnType<typeof vi.fn>).mock.calls[0];
+    const [url, init] = call as [string, { method: string; headers: Record<string, string> }];
+    expect(url).toBe('http://api.test/payments/pi_1/refund');
+    expect(init.method).toBe('POST');
+    expect(init.headers['idempotency-key']).toBe('idem-87654321');
+  });
 });

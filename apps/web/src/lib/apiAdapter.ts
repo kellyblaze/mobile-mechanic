@@ -73,6 +73,11 @@ export type AdminServiceRequest = {
 // POST /admin/memberships response shape — live-verified via curl on 2026-09-10 against Codex's
 // CR-007 implementation.
 export type Membership = { userId: string; businessId: string; role: 'customer' | 'mechanic' | 'admin'; email: string };
+// POST /payments response — a real Stripe PaymentIntent id/clientSecret/status, confirmed by
+// reading apps/api/src/server.ts's handler directly (no response schema in openapi.yaml).
+// clientSecret is what Stripe Elements needs to actually collect and confirm payment client-side.
+export type PaymentIntent = { id: string; clientSecret: string; status: string };
+export type Refund = { id: string; status: string };
 
 export type ApiErrorBody = { error: { code: string; message: string; fieldErrors?: Record<string, string[]>; requestId: string } };
 
@@ -198,7 +203,15 @@ export function createApiAdapter(options: ApiAdapterOptions) {
     // Supabase Auth account itself; that still happens through the approved Supabase/admin
     // process outside this app (see docs/change-requests/CR-007.md).
     provisionMembership: (input: { email: string; role: 'customer' | 'mechanic' | 'admin' }) =>
-      request<{ data: Membership }>('/admin/memberships', { method: 'POST', body: input })
+      request<{ data: Membership }>('/admin/memberships', { method: 'POST', body: input }),
+    // Customer-only. See docs/change-requests/CR-009.md: there's no invoiceId field here because
+    // the contract doesn't have one yet — this creates a standalone Stripe PaymentIntent, not
+    // one tied server-side to a specific invoice.
+    createPayment: (input: { amountMinor: number; currency: string; idempotencyKey: string }) =>
+      request<{ data: PaymentIntent }>('/payments', { method: 'POST', body: input }),
+    // Admin-only.
+    refundPayment: (id: string, idempotencyKey: string) =>
+      request<{ data: Refund }>(`/payments/${id}/refund`, { method: 'POST', extraHeaders: { 'idempotency-key': idempotencyKey } })
   };
 }
 
