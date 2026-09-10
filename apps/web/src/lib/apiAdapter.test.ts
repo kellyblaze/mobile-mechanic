@@ -246,4 +246,44 @@ describe('createApiAdapter', () => {
     expect(init.method).toBe('POST');
     expect(init.headers['idempotency-key']).toBe('idem-87654321');
   });
+
+  it('checks availability with the mechanic and window as query params', async () => {
+    const fetchImpl = mockFetch(200, { data: [], available: true });
+    const api = createApiAdapter({ baseUrl: 'http://api.test', actor: { userId: 'customer-demo', role: 'customer' }, fetchImpl });
+
+    const result = await api.checkAvailability({ mechanicId: 'mech-1', startsAt: '2026-09-15T14:00:00.000Z', endsAt: '2026-09-15T15:00:00.000Z' });
+
+    const call = (fetchImpl as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe(
+      'http://api.test/availability?mechanicId=mech-1&startsAt=2026-09-15T14%3A00%3A00.000Z&endsAt=2026-09-15T15%3A00%3A00.000Z'
+    );
+    expect(result.available).toBe(true);
+  });
+
+  it('creates a booking hold with the full input', async () => {
+    const fetchImpl = mockFetch(201, {
+      data: { id: 'hold-1', customerId: 'cust-1', mechanicId: 'mech-1', startsAt: '2026-09-15T14:00:00.000Z', endsAt: '2026-09-15T15:00:00.000Z', expiresAt: '2026-09-15T13:30:00.000Z', status: 'active' }
+    });
+    const api = createApiAdapter({ baseUrl: 'http://api.test', actor: { userId: 'customer-demo', role: 'customer' }, fetchImpl });
+
+    await api.createBookingHold({
+      mechanicId: 'mech-1',
+      startsAt: '2026-09-15T14:00:00.000Z',
+      endsAt: '2026-09-15T15:00:00.000Z',
+      expiresAt: '2026-09-15T13:30:00.000Z',
+      idempotencyKey: 'idem-12345678'
+    });
+
+    const call = (fetchImpl as ReturnType<typeof vi.fn>).mock.calls[0];
+    const [url, init] = call as [string, { method: string; body: string }];
+    expect(url).toBe('http://api.test/booking-holds');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body)).toEqual({
+      mechanicId: 'mech-1',
+      startsAt: '2026-09-15T14:00:00.000Z',
+      endsAt: '2026-09-15T15:00:00.000Z',
+      expiresAt: '2026-09-15T13:30:00.000Z',
+      idempotencyKey: 'idem-12345678'
+    });
+  });
 });

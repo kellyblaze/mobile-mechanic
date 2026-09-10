@@ -14,6 +14,7 @@ import { AdminJobs } from './routes/AdminJobs.js';
 import { AdminIssueQuote } from './routes/AdminIssueQuote.js';
 import { AdminProvisionMembership } from './routes/AdminProvisionMembership.js';
 import { PayInvoice } from './routes/PayInvoice.js';
+import { Booking } from './routes/Booking.js';
 import { SignIn } from './routes/SignIn.js';
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? 'http://127.0.0.1:3000/api/v1';
@@ -38,6 +39,9 @@ function PrimaryNav({ actorKey }: { actorKey: ActorKey }) {
         <>
           <NavLink to="/vehicles" className={({ isActive }) => (isActive ? 'active' : undefined)}>
             My Garage
+          </NavLink>
+          <NavLink to="/book" className={({ isActive }) => (isActive ? 'active' : undefined)}>
+            Book
           </NavLink>
           {/* Hardcoded seeded job id (packages/database/src/seed.ts) — the contract has no
               "list my jobs" endpoint for customers, so there's no real id to discover dynamically
@@ -189,6 +193,7 @@ export default function App() {
               <Route path="/sign-in" element={<SignIn auth={auth} />} />
               <Route path="/vehicles" element={<Vehicles api={api} actorKey={effectiveActorKey} />} />
               <Route path="/vehicles/:id" element={<VehiclePassport api={api} actorKey={effectiveActorKey} />} />
+              <Route path="/book" element={<Booking api={api} />} />
               <Route path="/intake/:category" element={<Intake api={api} actorKey={effectiveActorKey} />} />
               <Route path="/jobs/:id" element={<RepairRoom api={api} actorKey={effectiveActorKey} />} />
               <Route path="/invoices/:id/pay" element={<PayInvoice api={api} actorKey={effectiveActorKey} />} />

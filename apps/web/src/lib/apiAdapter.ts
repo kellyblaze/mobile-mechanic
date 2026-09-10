@@ -78,6 +78,22 @@ export type Membership = { userId: string; businessId: string; role: 'customer' 
 // clientSecret is what Stripe Elements needs to actually collect and confirm payment client-side.
 export type PaymentIntent = { id: string; clientSecret: string; status: string };
 export type Refund = { id: string; status: string };
+// GET /availability response — {data, available} where `data` lists conflicting appointments in
+// the requested window (empty when free) and `available` is the convenience boolean. Confirmed
+// live via curl on 2026-09-10 against a real free window (no response schema in openapi.yaml).
+export type AvailabilityConflict = { id: string; startsAt: string; endsAt: string; status: string };
+export type AvailabilityCheck = { data: AvailabilityConflict[]; available: boolean };
+// POST /booking-holds response — confirmed live via curl on 2026-09-10 against
+// packages/database/src/repositories.ts's createBookingRepository.createHold.
+export type BookingHold = {
+  id: string;
+  customerId: string;
+  mechanicId: string;
+  startsAt: string;
+  endsAt: string;
+  expiresAt: string;
+  status: string;
+};
 
 export type ApiErrorBody = { error: { code: string; message: string; fieldErrors?: Record<string, string[]>; requestId: string } };
 
@@ -211,7 +227,17 @@ export function createApiAdapter(options: ApiAdapterOptions) {
       request<{ data: PaymentIntent }>('/payments', { method: 'POST', body: input }),
     // Admin-only.
     refundPayment: (id: string, idempotencyKey: string) =>
-      request<{ data: Refund }>(`/payments/${id}/refund`, { method: 'POST', extraHeaders: { 'idempotency-key': idempotencyKey } })
+      request<{ data: Refund }>(`/payments/${id}/refund`, { method: 'POST', extraHeaders: { 'idempotency-key': idempotencyKey } }),
+    // Unlike every other read here, the raw response is {data, available} — not {data: T} — so
+    // AvailabilityCheck already includes both fields; no extra wrapper.
+    checkAvailability: (query: { mechanicId: string; startsAt: string; endsAt: string }) =>
+      request<AvailabilityCheck>(
+        `/availability?mechanicId=${encodeURIComponent(query.mechanicId)}&startsAt=${encodeURIComponent(query.startsAt)}&endsAt=${encodeURIComponent(query.endsAt)}`
+      ),
+    // Customer-only. See docs/change-requests/CR-012.md: creating a hold doesn't produce a real
+    // appointment yet — nothing converts booking_holds into appointments.
+    createBookingHold: (input: { mechanicId: string; startsAt: string; endsAt: string; expiresAt: string; idempotencyKey: string }) =>
+      request<{ data: BookingHold }>('/booking-holds', { method: 'POST', body: input })
   };
 }
 
