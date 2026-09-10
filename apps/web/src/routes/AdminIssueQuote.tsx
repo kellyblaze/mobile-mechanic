@@ -69,13 +69,6 @@ export function AdminIssueQuote({ api, actorKey }: { api: ApiAdapter; actorKey: 
       {serviceRequests.data && serviceRequests.data.data.length === 0 && (
         <p className="pending-note">No service requests are awaiting a quote right now.</p>
       )}
-      {serviceRequests.data && serviceRequests.data.data.length > 0 && (
-        <p className="pending-note">
-          Issuing a quote here doesn&rsquo;t change a request&rsquo;s status yet (CR-008), so an
-          already-quoted request may still show up below &mdash; check the customer&rsquo;s Repair
-          Room before issuing a second one.
-        </p>
-      )}
 
       {serviceRequests.data && serviceRequests.data.data.length > 0 && (
         <form
