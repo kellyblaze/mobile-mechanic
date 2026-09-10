@@ -3,7 +3,8 @@ import type { Database } from './client.js';
 export function createVehicleRepository(db: Database) {
   return {
     async listForCustomer(customerId: string) { return db.query('SELECT id, customer_id AS "customerId", year, make, model, mileage, vin FROM vehicles WHERE customer_id = $1 ORDER BY created_at DESC', [customerId]); },
-    async create(customerId: string, input: { year: number; make: string; model: string; mileage?: number; vin?: string }) { const rows = await db.query('INSERT INTO vehicles (customer_id, year, make, model, mileage, mileage_recorded_at, vin) VALUES ($1,$2,$3,$4,$5::integer,CASE WHEN $5::integer IS NULL THEN NULL ELSE now() END,$6) RETURNING id, customer_id AS "customerId", year, make, model, mileage, vin', [customerId, input.year, input.make, input.model, input.mileage ?? null, input.vin ?? null]); return rows[0]; }
+    async create(customerId: string, input: { year: number; make: string; model: string; mileage?: number; vin?: string }) { const rows = await db.query('INSERT INTO vehicles (customer_id, year, make, model, mileage, mileage_recorded_at, vin) VALUES ($1,$2,$3,$4,$5::integer,CASE WHEN $5::integer IS NULL THEN NULL ELSE now() END,$6) RETURNING id, customer_id AS "customerId", year, make, model, mileage, vin', [customerId, input.year, input.make, input.model, input.mileage ?? null, input.vin ?? null]); return rows[0]; },
+    async historyForCustomer(vehicleId: string, customerId: string) { const vehicle = await db.query('SELECT id FROM vehicles WHERE id = $1 AND customer_id = $2', [vehicleId, customerId]); if (!vehicle[0]) return null; return db.query('SELECT id, category, status, created_at AS "createdAt" FROM service_requests WHERE vehicle_id = $1 AND customer_id = $2 ORDER BY created_at DESC', [vehicleId, customerId]); }
   };
 }
 
