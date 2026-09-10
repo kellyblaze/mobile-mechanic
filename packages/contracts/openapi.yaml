@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Mobile Mechanic API
-  version: 1.3.0
+  version: 1.4.0
   description: Contract v1.0.0. Development adapters are explicitly marked in responses.
 servers:
   - url: http://127.0.0.1:3000/api/v1
@@ -46,6 +46,8 @@ paths:
     get: {operationId: listInvoices, tags: [quotes], security: [{devSession: []}], responses: {'200': {description: Customer invoices}}}
   /admin/jobs:
     get: {operationId: listAdminJobs, tags: [jobs], security: [{devSession: []}], responses: {'200': {description: Operational jobs}}}
+  /admin/service-requests:
+    get: {operationId: listAdminServiceRequests, tags: [quotes], security: [{devSession: []}], parameters: [{in: query, name: status, required: false, schema: {type: string}}], responses: {'200': {description: Service requests awaiting admin action}, '403': {$ref: '#/components/responses/Forbidden'}}}
   /admin/memberships:
     post: {operationId: provisionMembership, tags: [session], security: [{devSession: []}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/MembershipInput'}}}}, responses: {'201': {description: Provisioned membership}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}}}
   /mechanic/jobs:
