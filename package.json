@@ -11,6 +11,8 @@
     "lint": "tsc -p tsconfig.json --noEmit",
     "db:migrate": "tsx scripts/check-migrations.ts",
     "db:seed": "tsx packages/database/src/seed.ts",
+    "test:managed-auth": "tsx scripts/managed-auth-smoke.ts",
+    "test:managed-matrix": "tsx scripts/managed-auth-matrix.ts",
     "generate:client": "tsx packages/contracts/scripts/generate-client.ts",
     "api:mock": "MOCK_MODE=true tsx apps/api/src/server.ts"
   },

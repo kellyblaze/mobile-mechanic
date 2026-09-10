@@ -8,19 +8,19 @@ Codex owns `apps/api`, `packages/domain`, `packages/database`, `packages/contrac
 
 ## Security model
 
-Production authentication is designed for managed provider sessions in secure, HttpOnly, SameSite cookies. This checkpoint exposes an explicit development adapter using `X-Dev-User-Id` and `X-Dev-Role`; it is not production authentication and should never be enabled in production. Every implemented resource route checks role plus ownership/assignment. The schema uses memberships rather than a single role per person. API errors do not expose stack traces.
+Managed authentication uses Supabase JWTs verified against the configured issuer, audience, and JWKS endpoint. The API synchronizes the JWT subject to `public.users` and resolves the role through `memberships`; local development headers remain available only with `AUTH_MODE=development`. Every implemented resource route checks role plus ownership/assignment. Stripe webhooks are signature-verified and intentionally exempt from bearer authentication.
 
 ## Data and concurrency
 
-PostgreSQL 18 is the target. New identifiers use native `uuidv7()`, timestamps are `timestamptz`, money is integer minor units plus ISO currency, and accepted quote records are immutable by version. Migration `002_booking_payments_and_media.sql` adds private upload references, booking holds, appointment overlap exclusion, payment attempts, and webhook deduplication. Vehicle and service-request writes use PostgreSQL repositories when configured. The remaining message/quote/job adapters are still fixture-backed until their repositories are completed.
+PostgreSQL is the durable system of record. Timestamps are `timestamptz`, money is integer minor units plus ISO currency, and accepted quote records are immutable by version. Migrations add private upload references, booking holds, appointment overlap exclusion, payment attempts, webhook deduplication, completion reports, and Supabase Auth synchronization. Vehicle, service-request, booking, Repair Room, quote, job, invoice, and payment writes use PostgreSQL repositories when configured; fixture fallback remains explicit for unfinished/mock paths.
 
 ## Authentication and providers
 
-Authentication is provider-neutral. `AUTH_MODE=development` uses the explicitly unsafe local actor headers. `AUTH_MODE=managed` currently fails closed because no approved OIDC/JWT provider, issuer, audience, or JWKS configuration has been supplied. No vendor or credentials were invented.
+Authentication provider: Supabase Auth. `AUTH_MODE=managed` is the intended integration mode and fails closed on missing/invalid JWTs or missing memberships. `AUTH_MODE=development` uses explicitly unsafe local actor headers and is only for local fixture/development testing. Stripe test mode is used for payment intents, refunds, signed webhook delivery, deduplication, and reconciliation.
 
 ## Implemented at checkpoint
 
-Health, development session introspection, catalog read, customer vehicle list/create, authorized Repair Room job read, and quote acceptance with validation, ownership, role checks, version conflict, and explicit mock-mode metadata for catalog. The rest of the first-release surface is contract-planned but pending.
+Health, managed/development session introspection, catalog read, customer vehicle list/create, authorized Repair Room access, quote acceptance/issuance, job transitions/completion, findings/messages, booking holds, invoices, payment intents/refunds, signed Stripe webhooks, admin jobs, and mechanic jobs are implemented to the current contract. Remaining work is production hardening, richer policy coverage, and frontend integration.
 
 ## Database architecture summary
 
