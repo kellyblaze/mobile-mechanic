@@ -60,6 +60,18 @@ paths:
     get: {operationId: listAdminServiceRequests, tags: [quotes], security: [{devSession: []}], parameters: [{in: query, name: status, required: false, schema: {type: string}}], responses: {'200': {description: Service requests awaiting admin action}, '403': {$ref: '#/components/responses/Forbidden'}}}
   /admin/memberships:
     post: {operationId: provisionMembership, tags: [session], security: [{devSession: []}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/MembershipInput'}}}}, responses: {'201': {description: Provisioned membership}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}}}
+  /admin/monitoring/overview:
+    get: {operationId: getMonitoringOverview, tags: [monitoring], security: [{devSession: []}], responses: {'200': {description: Monitoring summary}, '403': {$ref: '#/components/responses/Forbidden'}, '503': {description: Monitoring provider unavailable}}}
+  /admin/monitoring/issues:
+    get: {operationId: listMonitoringIssues, tags: [monitoring], security: [{devSession: []}], parameters: [{in: query, name: severity, schema: {type: string}}, {in: query, name: status, schema: {type: string}}, {in: query, name: environment, schema: {type: string}}, {in: query, name: release, schema: {type: string}}, {in: query, name: cursor, schema: {type: string}}, {in: query, name: limit, schema: {type: integer, minimum: 1, maximum: 100}}], responses: {'200': {description: Monitoring issues}, '403': {$ref: '#/components/responses/Forbidden'}, '503': {description: Monitoring provider unavailable}}}
+  /admin/monitoring/issues/{id}:
+    get: {operationId: getMonitoringIssue, tags: [monitoring], security: [{devSession: []}], parameters: [{in: path, name: id, required: true, schema: {type: string}}], responses: {'200': {description: Monitoring issue detail}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '503': {description: Monitoring provider unavailable}}}
+  /admin/monitoring/webhooks:
+    get: {operationId: getMonitoringWebhooks, tags: [monitoring], security: [{devSession: []}], responses: {'200': {description: Webhook delivery status}, '403': {$ref: '#/components/responses/Forbidden'}}}
+  /admin/monitoring/reconciliation:
+    get: {operationId: getMonitoringReconciliation, tags: [monitoring], security: [{devSession: []}], responses: {'200': {description: Payment reconciliation status}, '403': {$ref: '#/components/responses/Forbidden'}}}
+  /admin/monitoring/uptime:
+    get: {operationId: getMonitoringUptime, tags: [monitoring], security: [{devSession: []}], responses: {'200': {description: Uptime status}, '403': {$ref: '#/components/responses/Forbidden'}}}
   /mechanic/jobs:
     get: {operationId: listMechanicJobs, tags: [jobs], security: [{devSession: []}], responses: {'200': {description: Assigned jobs}}}
   /payments:
