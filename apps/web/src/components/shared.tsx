@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { ApiRequestError } from '../lib/apiAdapter.js';
 
 // Decorative, purely illustrative — aria-hidden. Each icon carries its own themed hover/focus
@@ -57,12 +58,37 @@ export function StatusBadge({ status }: { status: string }) {
 }
 
 export function ErrorPanel({ error, onRetry }: { error: unknown; onRetry: () => void }) {
-  const message = error instanceof ApiRequestError ? error.message : 'Something went wrong loading this.';
+  // Falls back to a plain Error's own message (e.g. the monitoring mock-mode "simulate a
+  // failure" toggle) before the generic message — still generic for anything with no message.
+  const message = error instanceof ApiRequestError || error instanceof Error ? error.message : 'Something went wrong loading this.';
   return (
     <div role="alert" className="error-panel">
       <p>{message}</p>
       <button onClick={onRetry}>Try again</button>
     </div>
+  );
+}
+
+// Monitoring is admin-only, but unlike every other admin screen this session, it's built entirely
+// on mock data (CR-014) — there's no backend 403 to fall back on if a customer/mechanic navigates
+// here directly by URL, so this has to be a real client-side gate, not just a hidden nav link.
+export function AdminOnlyGate({ actorKey, children }: { actorKey: string; children: ReactNode }) {
+  if (actorKey !== 'admin') {
+    return (
+      <div role="alert" className="error-panel">
+        <p>This area is for admins only.</p>
+      </div>
+    );
+  }
+  return <>{children}</>;
+}
+
+export function MockModeBanner() {
+  return (
+    <p role="note" className="pending-note">
+      <strong>MOCK MODE</strong> &mdash; sample data, not connected to GlitchTip. See{' '}
+      docs/change-requests/CR-014.md.
+    </p>
   );
 }
 

@@ -14,6 +14,10 @@ import { AdminJobs } from './routes/AdminJobs.js';
 import { AdminIssueQuote } from './routes/AdminIssueQuote.js';
 import { AdminProvisionMembership } from './routes/AdminProvisionMembership.js';
 import { AdminIssueInvoice } from './routes/AdminIssueInvoice.js';
+import { MonitoringOverview } from './routes/MonitoringOverview.js';
+import { MonitoringIssues } from './routes/MonitoringIssues.js';
+import { MonitoringIssueDetail } from './routes/MonitoringIssueDetail.js';
+import { MonitoringOperations } from './routes/MonitoringOperations.js';
 import { PayInvoice } from './routes/PayInvoice.js';
 import { Booking } from './routes/Booking.js';
 import { SignIn } from './routes/SignIn.js';
@@ -71,6 +75,9 @@ function PrimaryNav({ actorKey }: { actorKey: ActorKey }) {
           </NavLink>
           <NavLink to="/admin/memberships/new" className={({ isActive }) => (isActive ? 'active' : undefined)}>
             Grant Access
+          </NavLink>
+          <NavLink to="/admin/monitoring" className={({ isActive }) => (isActive ? 'active' : undefined)}>
+            Monitoring
           </NavLink>
         </>
       )}
@@ -203,6 +210,10 @@ export default function App() {
               <Route path="/admin/quotes/new" element={<AdminIssueQuote api={api} actorKey={effectiveActorKey} />} />
               <Route path="/admin/memberships/new" element={<AdminProvisionMembership api={api} />} />
               <Route path="/admin/jobs/:id/invoice" element={<AdminIssueInvoice api={api} />} />
+              <Route path="/admin/monitoring" element={<MonitoringOverview actorKey={effectiveActorKey} />} />
+              <Route path="/admin/monitoring/issues" element={<MonitoringIssues actorKey={effectiveActorKey} />} />
+              <Route path="/admin/monitoring/issues/:id" element={<MonitoringIssueDetail actorKey={effectiveActorKey} />} />
+              <Route path="/admin/monitoring/operations" element={<MonitoringOperations actorKey={effectiveActorKey} />} />
             </Routes>
           )}
         </div>
