@@ -26,6 +26,44 @@ export function RepairRoom({ api, actorKey }: { api: ApiAdapter; actorKey: Actor
   const messages = useQuery({ queryKey: ['messages', id, actorKey], queryFn: () => api.listMessages(id) });
   const [message, setMessage] = useState('');
   const sendMessage = useMutation({ mutationFn: () => api.sendMessage(id, message), onSuccess: () => { setMessage(''); void queryClient.invalidateQueries({ queryKey: ['messages', id, actorKey] }); } });
+
+  // Mechanic-only controls below. The contract's JobTransition schema declares `status` as a
+  // plain string with no enum (openapi.yaml), so there's no fixed list of valid target statuses
+  // to offer as a dropdown — a free-text field is the honest choice, not a guessed set of options.
+  const [nextStatus, setNextStatus] = useState('');
+  const transitionJob = useMutation({
+    // job.data is guaranteed set by the time this fires — the transition control only renders
+    // after the loading/error early returns below, once job.data is confirmed present.
+    mutationFn: () => api.transitionJob(id, { expectedVersion: job.data?.data.version ?? 0, status: nextStatus.trim() }),
+    onSuccess: () => { setNextStatus(''); void queryClient.invalidateQueries({ queryKey: ['job', id, actorKey] }); },
+    onError: () => void queryClient.invalidateQueries({ queryKey: ['job', id, actorKey] })
+  });
+
+  const [findingCategory, setFindingCategory] = useState('');
+  const [findingNote, setFindingNote] = useState('');
+  const addFinding = useMutation({
+    // Cast is safe: the submit button stays disabled until findingCategory is non-empty, and the
+    // <select> below only offers the three real enum values as non-empty options.
+    mutationFn: () =>
+      api.addFinding(id, {
+        category: findingCategory as 'recommended_now' | 'plan_for_later' | 'monitor',
+        note: findingNote.trim()
+      }),
+    onSuccess: () => {
+      setFindingCategory('');
+      setFindingNote('');
+      void queryClient.invalidateQueries({ queryKey: ['findings', id, actorKey] });
+    }
+  });
+
+  const [completionSummary, setCompletionSummary] = useState('');
+  const completeJob = useMutation({
+    mutationFn: () => api.completeJob(id, { summary: completionSummary.trim() }),
+    onSuccess: () => {
+      setCompletionSummary('');
+      void queryClient.invalidateQueries({ queryKey: ['job', id, actorKey] });
+    }
+  });
   // Called before the early returns below (loading/error) so it runs on every render, same as
   // every other hook — conditionally calling hooks after an early return breaks React's rules.
   const { ref: headingRef, isInView: headingInView } = useInViewOnce<HTMLHeadingElement>();
@@ -92,6 +130,37 @@ export function RepairRoom({ api, actorKey }: { api: ApiAdapter; actorKey: Actor
           {findings.isError && <ErrorPanel error={findings.error} onRetry={() => findings.refetch()} />}
           {findings.data?.data.length === 0 && <p className="pending-note">No inspection findings have been recorded.</p>}
           {findings.data?.data.map((finding, index) => <p key={String(finding.id ?? index)}>{String(finding.note ?? 'Finding recorded')}</p>)}
+          {actorKey === 'mechanic' && (
+            <form
+              className="intake-step"
+              onSubmit={(event) => {
+                event.preventDefault();
+                addFinding.mutate();
+              }}
+            >
+              <label>
+                Category
+                {/* openapi.yaml declares category as a plain string with no enum, but the live API
+                    rejects anything outside this set (confirmed via curl: 422 "Invalid enum value.
+                    Expected 'recommended_now' | 'plan_for_later' | 'monitor'") — using the real
+                    values rather than the contract's (wrong) free-text implication. */}
+                <select value={findingCategory} onChange={(event) => setFindingCategory(event.target.value)}>
+                  <option value="">Select a category&hellip;</option>
+                  <option value="recommended_now">Recommended now</option>
+                  <option value="plan_for_later">Plan for later</option>
+                  <option value="monitor">Monitor</option>
+                </select>
+              </label>
+              <label>
+                Note
+                <textarea rows={2} value={findingNote} onChange={(event) => setFindingNote(event.target.value)} placeholder="What did you find?" />
+              </label>
+              <button type="submit" disabled={!findingCategory.trim() || !findingNote.trim() || addFinding.isPending}>
+                {addFinding.isPending ? 'Adding…' : 'Add finding'}
+              </button>
+              {addFinding.isError && <ValidationErrors error={addFinding.error} />}
+            </form>
+          )}
       </section>
 
       <section aria-labelledby="messages-heading">
@@ -107,9 +176,54 @@ export function RepairRoom({ api, actorKey }: { api: ApiAdapter; actorKey: Actor
         {sendMessage.isError && <ErrorPanel error={sendMessage.error} onRetry={() => sendMessage.mutate()} />}
       </section>
 
+      {actorKey === 'mechanic' && (
+        <section aria-labelledby="mechanic-controls-heading">
+          <h2 id="mechanic-controls-heading">Mechanic controls</h2>
+
+          <form
+            className="intake-step"
+            onSubmit={(event) => {
+              event.preventDefault();
+              transitionJob.mutate();
+            }}
+          >
+            {/* The contract's JobTransition.status is a free string with no enum (openapi.yaml)
+                — there is no fixed list of valid next statuses to offer, so this is a plain
+                text field rather than a dropdown with guessed options. */}
+            <label>
+              Update status
+              <input value={nextStatus} onChange={(event) => setNextStatus(event.target.value)} placeholder="e.g. in_progress" />
+            </label>
+            <button type="submit" disabled={!nextStatus.trim() || transitionJob.isPending}>
+              {transitionJob.isPending ? 'Updating…' : 'Update status'}
+            </button>
+            {transitionJob.isError && <ValidationErrors error={transitionJob.error} />}
+            {transitionJob.isSuccess && <p role="status">Status updated to {transitionJob.data.data.status}.</p>}
+          </form>
+
+          <form
+            className="intake-step"
+            onSubmit={(event) => {
+              event.preventDefault();
+              completeJob.mutate();
+            }}
+          >
+            <label>
+              Completion summary
+              <textarea rows={3} value={completionSummary} onChange={(event) => setCompletionSummary(event.target.value)} placeholder="Summarize the completed work" />
+            </label>
+            <button type="submit" disabled={!completionSummary.trim() || completeJob.isPending}>
+              {completeJob.isPending ? 'Submitting…' : 'Submit completion report'}
+            </button>
+            {completeJob.isError && <ErrorPanel error={completeJob.error} onRetry={() => completeJob.mutate()} />}
+            {completeJob.isSuccess && <p role="status">Completion report submitted.</p>}
+          </form>
+        </section>
+      )}
+
       <p className="pending-note">
-        Change orders, completion reports, and invoices are not yet published in the API contract. Those sections
-        will appear here once their endpoints ship (see docs/integration-status.md).
+        Invoices are not yet published in the API contract. That section will appear here once its endpoint ships
+        (see docs/integration-status.md).
       </p>
     </section>
   );

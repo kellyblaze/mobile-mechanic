@@ -28,6 +28,16 @@ export type Job = {
 };
 export type Quote = { id: string; customerId?: string; status: string; version: number; currency: string; totalMinor: number; lines: { description: string; amountMinor: number }[] };
 export type Session = { user: { id: string; role: string }; capabilities: string[] };
+// Job summary as returned by GET /mechanic/jobs and GET /admin/jobs — live-verified same shape
+// on both, distinct from the fuller Job type (no allowedActions/quoteId in the list response).
+export type JobSummary = {
+  id: string;
+  customerId?: string;
+  mechanicId?: string;
+  status: string;
+  version: number;
+  createdAt?: string;
+};
 
 export type ApiErrorBody = { error: { code: string; message: string; fieldErrors?: Record<string, string[]>; requestId: string } };
 
@@ -103,6 +113,12 @@ export function createApiAdapter(options: ApiAdapterOptions) {
     createServiceRequest: (input: { vehicleId: string; category: string; symptoms: string[]; notes?: string; attachmentIds?: string[] }) => request<{ data: Record<string, unknown> }>('/service-requests', { method: 'POST', body: input }),
     initiateUpload: (input: { fileName: string; contentType: string; sizeBytes: number }) => request<{ data: Record<string, unknown> }>('/uploads', { method: 'POST', body: input }),
     listFindings: (id: string) => request<{ data: Record<string, unknown>[] }>(`/jobs/${id}/findings`),
+    // openapi.yaml declares `category` as a plain string with no enum, but the live API rejects
+    // anything outside this set (confirmed via curl: 422 "Invalid enum value. Expected
+    // 'recommended_now' | 'plan_for_later' | 'monitor'") — typed to the real values, not the
+    // contract's (understated) free-text implication.
+    addFinding: (id: string, input: { category: 'recommended_now' | 'plan_for_later' | 'monitor'; note: string; attachmentId?: string }) =>
+      request<{ data: Record<string, unknown> }>(`/jobs/${id}/findings`, { method: 'POST', body: input }),
     listMessages: (id: string) => request<{ data: Record<string, unknown>[] }>(`/jobs/${id}/messages`),
     sendMessage: (id: string, body: string) => request<{ data: Record<string, unknown> }>(`/jobs/${id}/messages`, { method: 'POST', body: { body }, extraHeaders: { 'idempotency-key': crypto.randomUUID() } }),
     // CR-001 stopgap — see file header.
@@ -111,7 +127,27 @@ export function createApiAdapter(options: ApiAdapterOptions) {
         method: 'POST',
         body: command,
         extraHeaders: { 'idempotency-key': command.idempotencyKey }
-      })
+      }),
+    // Mechanic/admin operations, added for the mechanic/admin screens. All exact to
+    // openapi.yaml; request/response shapes live-verified via curl on 2026-09-10 (see commit).
+    listMechanicJobs: () => request<{ data: JobSummary[] }>('/mechanic/jobs'),
+    listAdminJobs: () => request<{ data: JobSummary[] }>('/admin/jobs'),
+    transitionJob: (id: string, input: { expectedVersion: number; status: string }) =>
+      request<{ data: Job }>(`/jobs/${id}/transitions`, { method: 'POST', body: input }),
+    completeJob: (id: string, input: { summary: string }) =>
+      request<{ data: { job: Job; report: Record<string, unknown> } }>(`/jobs/${id}/completion-report`, {
+        method: 'POST',
+        body: input
+      }),
+    // customerId/lines are required by the contract's QuoteInput but there's no endpoint to look
+    // a service request's customer up by id (CR-006) — admin currently has to know/enter it.
+    issueQuote: (
+      requestId: string,
+      input: { customerId: string; currency: string; lines: { description: string; amountMinor: number }[] }
+    ) => request<{ data: Record<string, unknown> }>(`/admin/service-requests/${requestId}/quotes`, {
+      method: 'POST',
+      body: input
+    })
   };
 }
 

@@ -84,4 +84,82 @@ describe('createApiAdapter', () => {
       expect((error as ApiRequestError).code).toBe('UNKNOWN_ERROR');
     }
   });
+
+  it('requests the mechanic job list from the correct path', async () => {
+    const fetchImpl = mockFetch(200, { data: [{ id: 'job-1', status: 'scheduled', version: 1 }] });
+    const api = createApiAdapter({ baseUrl: 'http://api.test', actor: { userId: 'mechanic-demo', role: 'mechanic' }, fetchImpl });
+
+    const result = await api.listMechanicJobs();
+
+    const call = (fetchImpl as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe('http://api.test/mechanic/jobs');
+    expect(result.data).toHaveLength(1);
+  });
+
+  it('requests the admin job list from the correct path', async () => {
+    const fetchImpl = mockFetch(200, { data: [] });
+    const api = createApiAdapter({ baseUrl: 'http://api.test', actor: { userId: 'admin-demo', role: 'admin' }, fetchImpl });
+
+    await api.listAdminJobs();
+
+    const call = (fetchImpl as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe('http://api.test/admin/jobs');
+  });
+
+  it('posts a status transition with the expected version', async () => {
+    const fetchImpl = mockFetch(200, { data: { id: 'job-1', status: 'in_progress', version: 2 } });
+    const api = createApiAdapter({ baseUrl: 'http://api.test', actor: { userId: 'mechanic-demo', role: 'mechanic' }, fetchImpl });
+
+    await api.transitionJob('job-1', { expectedVersion: 1, status: 'in_progress' });
+
+    const call = (fetchImpl as ReturnType<typeof vi.fn>).mock.calls[0];
+    const [url, init] = call as [string, { method: string; body: string }];
+    expect(url).toBe('http://api.test/jobs/job-1/transitions');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body)).toEqual({ expectedVersion: 1, status: 'in_progress' });
+  });
+
+  it('posts a completion report summary', async () => {
+    const fetchImpl = mockFetch(200, { data: { job: { id: 'job-1', status: 'completed', version: 3 }, report: {} } });
+    const api = createApiAdapter({ baseUrl: 'http://api.test', actor: { userId: 'mechanic-demo', role: 'mechanic' }, fetchImpl });
+
+    await api.completeJob('job-1', { summary: 'Replaced brake pads.' });
+
+    const call = (fetchImpl as ReturnType<typeof vi.fn>).mock.calls[0];
+    const [url, init] = call as [string, { method: string; body: string }];
+    expect(url).toBe('http://api.test/jobs/job-1/completion-report');
+    expect(JSON.parse(init.body)).toEqual({ summary: 'Replaced brake pads.' });
+  });
+
+  it('posts a finding with category and note', async () => {
+    const fetchImpl = mockFetch(201, { data: { id: 'finding-1', category: 'recommended_now', note: 'Pads worn thin.' } });
+    const api = createApiAdapter({ baseUrl: 'http://api.test', actor: { userId: 'mechanic-demo', role: 'mechanic' }, fetchImpl });
+
+    await api.addFinding('job-1', { category: 'recommended_now', note: 'Pads worn thin.' });
+
+    const call = (fetchImpl as ReturnType<typeof vi.fn>).mock.calls[0];
+    const [url, init] = call as [string, { method: string; body: string }];
+    expect(url).toBe('http://api.test/jobs/job-1/findings');
+    expect(JSON.parse(init.body)).toEqual({ category: 'recommended_now', note: 'Pads worn thin.' });
+  });
+
+  it('issues a quote against a service request with lines', async () => {
+    const fetchImpl = mockFetch(201, { data: { id: 'quote-1' } });
+    const api = createApiAdapter({ baseUrl: 'http://api.test', actor: { userId: 'admin-demo', role: 'admin' }, fetchImpl });
+
+    await api.issueQuote('request-1', {
+      customerId: 'customer-1',
+      currency: 'USD',
+      lines: [{ description: 'Diagnostic appointment', amountMinor: 9900 }]
+    });
+
+    const call = (fetchImpl as ReturnType<typeof vi.fn>).mock.calls[0];
+    const [url, init] = call as [string, { method: string; body: string }];
+    expect(url).toBe('http://api.test/admin/service-requests/request-1/quotes');
+    expect(JSON.parse(init.body)).toEqual({
+      customerId: 'customer-1',
+      currency: 'USD',
+      lines: [{ description: 'Diagnostic appointment', amountMinor: 9900 }]
+    });
+  });
 });

@@ -7,6 +7,9 @@ import { Vehicles } from './routes/Vehicles.js';
 import { VehiclePassport } from './routes/VehiclePassport.js';
 import { Intake } from './routes/Intake.js';
 import { RepairRoom } from './routes/RepairRoom.js';
+import { MechanicJobs } from './routes/MechanicJobs.js';
+import { AdminJobs } from './routes/AdminJobs.js';
+import { AdminIssueQuote } from './routes/AdminIssueQuote.js';
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? 'http://127.0.0.1:3000/api/v1';
 
@@ -14,7 +17,7 @@ const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?
 // own static underline — a continuous visual thread as you move between pages. Measures the
 // active <a>'s position via a plain DOM query (react-router's NavLink already puts an "active"
 // class on it) rather than tracking route-to-ref mappings by hand.
-function PrimaryNav() {
+function PrimaryNav({ actorKey }: { actorKey: ActorKey }) {
   const location = useLocation();
   const navRef = useRef<HTMLElement>(null);
   const [underline, setUnderline] = useState({ left: 0, width: 0, visible: false });
@@ -22,23 +25,42 @@ function PrimaryNav() {
   useEffect(() => {
     const active = navRef.current?.querySelector<HTMLAnchorElement>('a.active');
     setUnderline(active ? { left: active.offsetLeft, width: active.offsetWidth, visible: true } : { left: 0, width: 0, visible: false });
-  }, [location.pathname]);
+  }, [location.pathname, actorKey]);
 
   return (
     <nav aria-label="Primary" ref={navRef} className="primary-nav">
-      <NavLink to="/vehicles" className={({ isActive }) => (isActive ? 'active' : undefined)}>
-        My Garage
-      </NavLink>
-      {/* Hardcoded seeded job id (packages/database/src/seed.ts) — the contract has no
-          "list my jobs" endpoint for customers, so there's no real id to discover dynamically
-          yet. The old "job-1" fixture id stopped resolving once persistence moved to real
-          Postgres (verified live: it now 403s for customer-demo). */}
-      <NavLink
-        to="/jobs/44444444-4444-4444-8444-444444444444"
-        className={({ isActive }) => (isActive ? 'active' : undefined)}
-      >
-        Repair Room
-      </NavLink>
+      {actorKey === 'customer' && (
+        <>
+          <NavLink to="/vehicles" className={({ isActive }) => (isActive ? 'active' : undefined)}>
+            My Garage
+          </NavLink>
+          {/* Hardcoded seeded job id (packages/database/src/seed.ts) — the contract has no
+              "list my jobs" endpoint for customers, so there's no real id to discover dynamically
+              yet. The old "job-1" fixture id stopped resolving once persistence moved to real
+              Postgres (verified live: it now 403s for customer-demo). */}
+          <NavLink
+            to="/jobs/44444444-4444-4444-8444-444444444444"
+            className={({ isActive }) => (isActive ? 'active' : undefined)}
+          >
+            Repair Room
+          </NavLink>
+        </>
+      )}
+      {actorKey === 'mechanic' && (
+        <NavLink to="/mechanic/jobs" className={({ isActive }) => (isActive ? 'active' : undefined)}>
+          My Jobs
+        </NavLink>
+      )}
+      {actorKey === 'admin' && (
+        <>
+          <NavLink to="/admin/jobs" className={({ isActive }) => (isActive ? 'active' : undefined)}>
+            Admin
+          </NavLink>
+          <NavLink to="/admin/quotes/new" className={({ isActive }) => (isActive ? 'active' : undefined)}>
+            New Quote
+          </NavLink>
+        </>
+      )}
       <span
         className="nav-underline"
         aria-hidden="true"
@@ -75,7 +97,7 @@ export default function App() {
       <DevSessionBar actorKey={actorKey} onChange={setActorKey} />
       <header className="app-header">
         <Link to="/" className="brand"><span className="accent">&#9679;</span> Travel Automotive</Link>
-        <PrimaryNav />
+        <PrimaryNav actorKey={actorKey} />
       </header>
       <main id="main-content">
         {/* key={pathname} forces a remount on every navigation, replaying the page-enter CSS
@@ -87,6 +109,9 @@ export default function App() {
             <Route path="/vehicles/:id" element={<VehiclePassport api={api} actorKey={actorKey} />} />
             <Route path="/intake/:category" element={<Intake api={api} actorKey={actorKey} />} />
             <Route path="/jobs/:id" element={<RepairRoom api={api} actorKey={actorKey} />} />
+            <Route path="/mechanic/jobs" element={<MechanicJobs api={api} actorKey={actorKey} />} />
+            <Route path="/admin/jobs" element={<AdminJobs api={api} actorKey={actorKey} />} />
+            <Route path="/admin/quotes/new" element={<AdminIssueQuote api={api} actorKey={actorKey} />} />
           </Routes>
         </div>
       </main>
