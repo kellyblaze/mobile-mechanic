@@ -33,7 +33,8 @@ export function createRepairRoomRepository(db: Database) {
   return {
     async listMessages(jobId: string) { return db.query('SELECT id, job_id AS "jobId", sender_id AS "senderId", body, created_at AS "createdAt" FROM job_messages WHERE job_id = $1 ORDER BY created_at', [jobId]); },
     async addMessage(jobId: string, senderId: string, body: string) { const rows = await db.query('INSERT INTO job_messages (job_id, sender_id, body) VALUES ($1,$2,$3) RETURNING id, job_id AS "jobId", sender_id AS "senderId", body, created_at AS "createdAt"', [jobId, senderId, body]); return rows[0]; },
-    async listFindings(jobId: string) { return db.query('SELECT id, job_id AS "jobId", mechanic_id AS "mechanicId", category, note, attachment_id AS "attachmentId", created_at AS "createdAt" FROM inspection_findings WHERE job_id = $1 ORDER BY created_at', [jobId]); }
+    async listFindings(jobId: string) { return db.query('SELECT id, job_id AS "jobId", mechanic_id AS "mechanicId", category, note, attachment_id AS "attachmentId", created_at AS "createdAt" FROM inspection_findings WHERE job_id = $1 ORDER BY created_at', [jobId]); },
+    async addFinding(jobId: string, mechanicId: string, input: { category: string; note: string; attachmentId?: string }) { const rows = await db.query('INSERT INTO inspection_findings (job_id, mechanic_id, category, note, attachment_id) VALUES ($1,$2,$3,$4,$5) RETURNING id, job_id AS "jobId", mechanic_id AS "mechanicId", category, note, attachment_id AS "attachmentId", created_at AS "createdAt"', [jobId, mechanicId, input.category, input.note, input.attachmentId ?? null]); return rows[0]; }
   };
 }
 
