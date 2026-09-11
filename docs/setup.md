@@ -21,3 +21,12 @@ Invoke-RestMethod -Headers @{ 'X-Dev-User-Id'='customer-demo'; 'X-Dev-Role'='cus
 ```
 
 `pnpm api:mock` explicitly sets `MOCK_MODE=true`; it does not silently turn on in production. `pnpm db:migrate` validates migration presence only in this checkpoint; use an approved PostgreSQL migration runner before applying to a real database.
+
+## Staging deployment
+
+The repository contains `render.yaml` for the API and `vercel.json` for the web preview. Deploy the
+API from the Render Blueprint dashboard and the web app from Vercel using branch
+`feature/issue-2-backend-completion`. Fill every `sync: false` value from the staging provider
+configuration; never commit those values. Run `pnpm db:migrate` against the staging Supabase
+database before the first API start, then use the deployed `/health` endpoint and the managed-auth,
+Stripe test-mode, upload, booking, and authorization scripts as the staging gate.
