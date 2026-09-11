@@ -38,6 +38,25 @@ export function createBookingRepository(db: Database) {
         await client.query('INSERT INTO audit_events (actor_id, action, resource_type, resource_id, payload) VALUES ($1, $2, $3, $4, $5)', [input.actorId, 'appointment.cancelled', 'appointment', input.appointmentId, JSON.stringify({ reason: input.reason ?? null })]);
         return { kind: 'cancelled' as const, appointment: updated.rows[0] };
       });
+    },
+    async rescheduleAppointment(input: { appointmentId: string; holdId: string; actorId: string; role: string; expectedVersion: number; reason?: string }) {
+      return db.withTransaction(async (client) => {
+        const current = await client.query('SELECT id, customer_id AS "customerId", mechanic_id AS "mechanicId", starts_at AS "startsAt", status, version FROM appointments WHERE id = $1 FOR UPDATE', [input.appointmentId]);
+        const appointment = current.rows[0];
+        if (!appointment || !['confirmed', 'scheduled'].includes(appointment.status)) return { kind: 'not_found' as const };
+        if (appointment.version !== input.expectedVersion) return { kind: 'stale' as const };
+        const participant = input.role === 'admin' || (input.role === 'customer' && appointment.customerId === input.actorId) || (input.role === 'mechanic' && appointment.mechanicId === input.actorId);
+        if (!participant) return { kind: 'forbidden' as const };
+        if (input.role !== 'admin' && new Date(appointment.startsAt) < new Date(Date.now() + 2 * 60 * 60 * 1000)) return { kind: 'cutoff' as const };
+        const hold = await client.query('SELECT * FROM booking_holds WHERE id = $1 AND customer_id = $2 FOR UPDATE', [input.holdId, appointment.customerId]);
+        if (!hold.rows[0] || hold.rows[0].status !== 'active' || new Date(hold.rows[0].expires_at) <= new Date() || hold.rows[0].mechanic_id !== appointment.mechanicId) return { kind: 'hold_invalid' as const };
+        const next = await client.query('INSERT INTO appointments (quote_id, customer_id, mechanic_id, starts_at, ends_at, timezone, status, version, hold_id, idempotency_key, rescheduled_from_id) SELECT quote_id, customer_id, mechanic_id, starts_at, ends_at, timezone, \'confirmed\', 1, id, $2, $3 FROM appointments WHERE id = $4 RETURNING id, customer_id AS "customerId", mechanic_id AS "mechanicId", starts_at AS "startsAt", ends_at AS "endsAt", status, version, hold_id AS "holdId", rescheduled_from_id AS "rescheduledFromId"', [input.holdId, `reschedule-${input.appointmentId}-${input.holdId}`, input.appointmentId, input.appointmentId]);
+        await client.query("UPDATE appointments SET status = 'rescheduled', version = version + 1, rescheduled_to_id = $2, rescheduled_at = now(), rescheduled_by = $3, rescheduling_reason = $4 WHERE id = $1", [input.appointmentId, next.rows[0].id, input.actorId, input.reason ?? null]);
+        await client.query('UPDATE jobs SET appointment_id = $2, version = version + 1 WHERE appointment_id = $1', [input.appointmentId, next.rows[0].id]);
+        await client.query("UPDATE booking_holds SET status = 'converted' WHERE id = $1", [input.holdId]);
+        await client.query('INSERT INTO audit_events (actor_id, action, resource_type, resource_id, payload) VALUES ($1, $2, $3, $4, $5)', [input.actorId, 'appointment.rescheduled', 'appointment', input.appointmentId, JSON.stringify({ newAppointmentId: next.rows[0].id, reason: input.reason ?? null })]);
+        return { kind: 'rescheduled' as const, appointment: next.rows[0] };
+      });
     }
   };
 }

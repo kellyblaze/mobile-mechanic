@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Mobile Mechanic API
-  version: 2.0.0
+  version: 2.1.0
   description: Contract v1.0.0. Development adapters are explicitly marked in responses.
 servers:
   - url: http://127.0.0.1:3000/api/v1
@@ -19,6 +19,8 @@ paths:
     post: {operationId: confirmBookingHold, tags: [jobs], security: [{devSession: []}], parameters: [{in: path, name: id, required: true, schema: {type: string}}], responses: {'201': {description: Confirmed appointment and scheduled job, content: {application/json: {schema: {$ref: '#/components/schemas/BookingConfirmation'}}}}, '409': {$ref: '#/components/responses/Conflict'}}}
   /appointments/{id}/cancel:
     post: {operationId: cancelAppointment, tags: [jobs], security: [{devSession: []}], parameters: [{in: path, name: id, required: true, schema: {type: string}}], requestBody: {required: false, content: {application/json: {schema: {$ref: '#/components/schemas/CancellationInput'}}}}, responses: {'200': {description: Cancelled appointment}, '403': {$ref: '#/components/responses/Forbidden'}, '409': {$ref: '#/components/responses/Conflict'}}}
+  /appointments/{id}/reschedule:
+    post: {operationId: rescheduleAppointment, tags: [jobs], security: [{devSession: []}], parameters: [{in: path, name: id, required: true, schema: {type: string}}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/RescheduleInput'}}}}, responses: {'200': {description: Rescheduled appointment}, '403': {$ref: '#/components/responses/Forbidden'}, '409': {$ref: '#/components/responses/Conflict'}}}
   /mechanics:
     get: {operationId: listMechanics, tags: [jobs], security: [{devSession: []}], responses: {'200': {description: Mechanics}}}
   /vehicles:
@@ -95,6 +97,7 @@ components:
     PaymentInput: {type: object, required: [amountMinor, currency, idempotencyKey], properties: {invoiceId: {type: string}, amountMinor: {type: integer, minimum: 1}, currency: {type: string, minLength: 3, maxLength: 3}, idempotencyKey: {type: string, minLength: 8}}}
     BookingConfirmation: {type: object, required: [appointment, job], properties: {appointment: {type: object}, job: {type: object}}}
     CancellationInput: {type: object, properties: {reason: {type: string, maxLength: 500}}}
+    RescheduleInput: {type: object, required: [holdId, expectedVersion], properties: {holdId: {type: string}, expectedVersion: {type: integer, minimum: 1}, reason: {type: string, maxLength: 500}}}
     ServiceList: {type: object, properties: {data: {type: array, items: {type: object}}, meta: {type: object}}}
   responses:
     Unauthorized: {description: Unauthenticated, content: {application/json: {schema: {$ref: '#/components/schemas/ApiError'}}}}

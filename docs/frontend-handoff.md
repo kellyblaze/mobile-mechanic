@@ -3,7 +3,7 @@
 Repository: E:\Projects\Mobile Mechanic
 Branch: feature/issue-2-backend-completion
 Backend handoff commit: 90e07833f043a7f7167672b0d64039d48cb04a51
-Contract version: 2.0.0
+Contract version: 2.1.0
 Canonical contract: packages/contracts/openapi.yaml
 Generated client: packages/contracts/generated/client.ts
 
@@ -57,6 +57,7 @@ Use the generated client through one frontend adapter.
 - Jobs: GET /admin/jobs, GET /mechanic/jobs, POST /jobs/{id}/transitions, POST /jobs/{id}/completion-report
 - Scheduling: GET /availability, POST /booking-holds, POST /booking-holds/{id}/confirm (returns appointment and scheduled job)
 - Cancellation: POST /appointments/{id}/cancel; customers and mechanics require at least two hours notice, admins may cancel future appointments; refunds remain admin-controlled
+- Rescheduling: POST /appointments/{id}/reschedule with a newly created booking hold and expectedVersion; the existing job moves to the new appointment transactionally
 - Mechanics: GET /mechanics
 - Billing: GET /invoices, POST /admin/jobs/{id}/invoices, POST /payments (optional invoiceId), POST /payments/{id}/refund
 
