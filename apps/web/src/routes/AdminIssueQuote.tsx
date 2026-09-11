@@ -85,6 +85,7 @@ export function AdminIssueQuote({ api, actorKey }: { api: ApiAdapter; actorKey: 
               {serviceRequests.data.data.map((request) => (
                 <option key={request.id} value={request.id}>
                   {request.customerEmail} &mdash; {request.year} {request.make} {request.model} ({request.category})
+                  {request.attachmentIds.length > 0 ? ` [${request.attachmentIds.length} photo${request.attachmentIds.length === 1 ? '' : 's'}]` : ''}
                 </option>
               ))}
             </select>
@@ -94,6 +95,11 @@ export function AdminIssueQuote({ api, actorKey }: { api: ApiAdapter; actorKey: 
               {selectedRequest.symptoms.length > 0 && <>Symptoms: {selectedRequest.symptoms.join(', ')}. </>}
               {selectedRequest.notes && <>Notes: {selectedRequest.notes}. </>}
               Delivery: {selectedRequest.deliveryMode}. Submitted {new Date(selectedRequest.createdAt).toLocaleDateString()}.
+              {/* attachmentIds (CR-017, resolved) is always present. No way yet to view what's in
+                  each upload (no GET /uploads/{id}, no signed read URL — see CR-018), so this can
+                  only show a count, not thumbnails or filenames. */}
+              {selectedRequest.attachmentIds.length > 0 &&
+                ` ${selectedRequest.attachmentIds.length} photo${selectedRequest.attachmentIds.length === 1 ? '' : 's'} attached (not yet viewable here — see CR-018).`}
             </p>
           )}
           <label>

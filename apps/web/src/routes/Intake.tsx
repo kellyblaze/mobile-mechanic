@@ -8,13 +8,13 @@ import { ErrorPanel } from '../components/shared.js';
 
 // "Tap Your Trouble" guided intake — the product agreement's signature intake flow. A real,
 // fully interactive 4-step wizard (vehicle -> details -> photos -> review) backed by the real
-// POST /service-requests (CR-005) and, as of 2026-09-11, real photo uploads (CR-005/CR-017):
-// each selected photo is genuinely uploaded to a private Supabase Storage bucket the moment it's
-// added (initiate -> PUT the real bytes -> complete — see apiAdapter.ts's uploadFileToSignedUrl).
-// What's still missing: POST /service-requests accepts an `attachmentIds` field but the backend
-// silently discards it — uploaded photos aren't yet linked to the request a mechanic can see.
-// Sent anyway (harmless, forward-compatible), and disclosed honestly in the photo step's copy.
-// See docs/change-requests/CR-017.md.
+// POST /service-requests (CR-005) and real photo uploads (CR-005/CR-017): each selected photo is
+// genuinely uploaded to a private Supabase Storage bucket the moment it's added (initiate -> PUT
+// the real bytes -> complete — see apiAdapter.ts's uploadFileToSignedUrl), and as of Codex's
+// CR-017 resolution, genuinely linked to the resulting service request server-side. What's still
+// missing: nothing yet lets anyone actually view an uploaded photo's content (no GET /uploads/{id},
+// no signed read URL) — see CR-018. So a mechanic/admin reviewing the request can see how many
+// photos were attached, but not the photos themselves yet.
 type IntakeCategory = 'something-wrong' | 'tires' | 'bodywork';
 
 const INTAKE_CATEGORIES: Record<IntakeCategory, { title: string; options: string[] }> = {
@@ -213,8 +213,7 @@ export function Intake({ api, actorKey }: { api: ApiAdapter; actorKey: ActorKey 
         <div className="intake-step">
           <h2>Add photos (optional)</h2>
           <p className="pending-note">
-            Photos upload to private storage as soon as you add them. They aren&rsquo;t visible to your
-            mechanic within this request yet — see docs/change-requests/CR-017.md.
+            Photos upload to private storage as soon as you add them and are attached to your request.
           </p>
           <label className="intake-photo-input">
             <input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={handlePhotoSelect} />
@@ -290,7 +289,12 @@ export function Intake({ api, actorKey }: { api: ApiAdapter; actorKey: ActorKey 
             {submitRequest.isPending ? 'Submitting…' : 'Submit request'}
           </button>
           {submitRequest.isError && <ErrorPanel error={submitRequest.error} onRetry={() => submitRequest.mutate()} />}
-          {submitRequest.isSuccess && <p role="status">Request submitted. We’ll review the details and follow up with next steps.</p>}
+          {submitRequest.isSuccess && (
+            <p role="status">
+              Request submitted{submitRequest.data.data.attachmentIds?.length ? ` with ${submitRequest.data.data.attachmentIds.length} photo(s) attached` : ''}.
+              We’ll review the details and follow up with next steps.
+            </p>
+          )}
           <div className="intake-nav">
             <button type="button" onClick={() => setStep(3)}>
               Back

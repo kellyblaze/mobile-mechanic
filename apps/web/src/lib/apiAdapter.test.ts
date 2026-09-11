@@ -496,4 +496,25 @@ describe('createApiAdapter', () => {
 
     await expect(api.uploadFileToSignedUrl('https://storage.test/upload?token=expired', file)).rejects.toThrow('403');
   });
+
+  it('creates a service request and returns the real linked-attachment shape', async () => {
+    const fetchImpl = mockFetch(201, {
+      data: {
+        id: 'req-1',
+        customerId: 'cust-1',
+        vehicleId: 'veh-1',
+        category: 'something-wrong',
+        status: 'submitted',
+        createdAt: '2026-09-11T16:00:00.000Z',
+        attachmentIds: ['upload-1'],
+        attachments: [{ id: 'upload-1', fileName: 'photo.jpg', contentType: 'image/jpeg', sizeBytes: 1000, status: 'ready' }]
+      }
+    });
+    const api = createApiAdapter({ baseUrl: 'http://api.test', actor: { userId: 'customer-demo', role: 'customer' }, fetchImpl });
+
+    const result = await api.createServiceRequest({ vehicleId: 'veh-1', category: 'something-wrong', symptoms: [], attachmentIds: ['upload-1'] });
+
+    expect(result.data.attachmentIds).toEqual(['upload-1']);
+    expect(result.data.attachments?.[0].fileName).toBe('photo.jpg');
+  });
 });

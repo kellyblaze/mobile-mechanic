@@ -66,6 +66,10 @@ export type JobSummary = {
 // via curl on 2026-09-10 against Codex's CR-006 implementation (packages/database/src/repositories.ts
 // createServiceRequestRepository.listForAdmin): carries customerId directly, which is exactly
 // what CR-006 exists to give the quote-issuance screen.
+// attachmentIds (CR-017, resolved) is always present, never omitted — the SQL COALESCEs an empty
+// json_agg to '[]', confirmed live for both a request with attachments and one without. No way
+// yet to view what's actually in each upload (no GET /uploads/{id}, no signed read URL) — filed
+// as CR-018, so the frontend can only show a count, not thumbnails/filenames, from this list.
 export type AdminServiceRequest = {
   id: string;
   customerId: string;
@@ -80,6 +84,27 @@ export type AdminServiceRequest = {
   year: number;
   make: string;
   model: string;
+  attachmentIds: string[];
+};
+// POST /service-requests response — live-verified via curl on 2026-09-11 against Codex's CR-017
+// resolution (a new service_request_attachments join table). When every id in attachmentIds is a
+// real, owned, status:'ready' upload, the response echoes attachmentIds back plus a richer
+// `attachments` array with each upload's own metadata. If any id does NOT resolve to a real,
+// owned, ready upload, the request currently 500s instead of a proper 4xx — confirmed live: the
+// repository throws a plain Error('INVALID_ATTACHMENTS') with no route-level catch, so Fastify's
+// generic error handler turns it into 500 INTERNAL_ERROR with no detail. Filed as CR-018. The
+// frontend only ever sends ids it has itself confirmed uploaded (see Intake.tsx), so this path is
+// rare in normal use, but it's a real, live-confirmed gap, not a guess.
+export type ServiceRequestAttachment = { id: string; fileName: string; contentType: string; sizeBytes: number; status: string };
+export type ServiceRequest = {
+  id: string;
+  customerId?: string;
+  vehicleId?: string;
+  category?: string;
+  status: string;
+  createdAt?: string;
+  attachmentIds?: string[];
+  attachments?: ServiceRequestAttachment[];
 };
 // POST /uploads / POST /uploads/{id}/complete response — live-verified via curl on 2026-09-11
 // against a real, private Supabase Storage bucket (CR-017: the bucket named in
@@ -283,7 +308,7 @@ export function createApiAdapter(options: ApiAdapterOptions) {
     getQuote: (id: string) => request<{ data: Quote }>(`/quotes/${id}`),
     getVehicleHistory: (id: string) => request<{ data: Record<string, unknown>[] }>(`/vehicles/${id}/history`),
     listInvoices: () => request<{ data: Invoice[] }>('/invoices'),
-    createServiceRequest: (input: { vehicleId: string; category: string; symptoms: string[]; notes?: string; attachmentIds?: string[] }) => request<{ data: Record<string, unknown> }>('/service-requests', { method: 'POST', body: input }),
+    createServiceRequest: (input: { vehicleId: string; category: string; symptoms: string[]; notes?: string; attachmentIds?: string[] }) => request<{ data: ServiceRequest }>('/service-requests', { method: 'POST', body: input }),
     initiateUpload: (input: { fileName: string; contentType: string; sizeBytes: number }) => request<{ data: UploadReference }>('/uploads', { method: 'POST', body: input }),
     completeUpload: (id: string) => request<{ data: UploadReference }>(`/uploads/${id}/complete`, { method: 'POST' }),
     // Goes straight to Supabase Storage, not our own API — a different origin entirely, needing
