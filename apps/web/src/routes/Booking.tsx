@@ -46,6 +46,18 @@ export function Booking({ api }: { api: ApiAdapter }) {
     }
   });
 
+  // Cancellation needs the real appointment id, which only exists once confirmHold succeeds —
+  // there's no GET endpoint anywhere in the app that surfaces an appointment's id afterward (a
+  // job's own GET response omits appointmentId even though the DB has it — see CR-015), so this
+  // is the only place in the app a cancel action is currently possible at all.
+  const [cancelReason, setCancelReason] = useState('');
+  const cancelAppointment = useMutation({
+    mutationFn: () => {
+      if (!confirmHold.data) throw new Error('Nothing to cancel yet.');
+      return api.cancelAppointment(confirmHold.data.data.appointment.id, cancelReason.trim() || undefined);
+    }
+  });
+
   return (
     <section aria-labelledby="booking-heading">
       <h1
@@ -78,6 +90,8 @@ export function Booking({ api }: { api: ApiAdapter }) {
                 checkAvailability.reset();
                 createHold.reset();
                 confirmHold.reset();
+                cancelAppointment.reset();
+                setCancelReason('');
               }}
             >
               <option value="">Select a mechanic&hellip;</option>
@@ -99,6 +113,8 @@ export function Booking({ api }: { api: ApiAdapter }) {
                 checkAvailability.reset();
                 createHold.reset();
                 confirmHold.reset();
+                cancelAppointment.reset();
+                setCancelReason('');
               }}
             />
           </label>
@@ -132,11 +148,38 @@ export function Booking({ api }: { api: ApiAdapter }) {
         </div>
       )}
       {confirmHold.isError && <ErrorPanel error={confirmHold.error} onRetry={() => confirmHold.mutate()} />}
-      {confirmHold.isSuccess && (
-        <p role="status">
-          Booking confirmed for {new Date(confirmHold.data.data.appointment.startsAt).toLocaleString()}.
-        </p>
+      {confirmHold.isSuccess && !cancelAppointment.isSuccess && (
+        <div>
+          <p role="status">
+            Booking confirmed for {new Date(confirmHold.data.data.appointment.startsAt).toLocaleString()}.
+          </p>
+          <form
+            className="intake-step"
+            onSubmit={(event) => {
+              event.preventDefault();
+              cancelAppointment.mutate();
+            }}
+          >
+            <label>
+              Reason (optional)
+              <input
+                value={cancelReason}
+                onChange={(event) => setCancelReason(event.target.value)}
+                placeholder="e.g. schedule conflict"
+                disabled={cancelAppointment.isPending}
+              />
+            </label>
+            {/* Customers/mechanics need at least two hours notice — a cancellation inside that
+                window returns a real 409 CANCELLATION_CUTOFF, shown below via the real server
+                message rather than a guessed one. */}
+            <button type="submit" disabled={cancelAppointment.isPending}>
+              {cancelAppointment.isPending ? 'Cancelling…' : 'Cancel this booking'}
+            </button>
+          </form>
+          {cancelAppointment.isError && <ErrorPanel error={cancelAppointment.error} onRetry={() => cancelAppointment.mutate()} />}
+        </div>
       )}
+      {cancelAppointment.isSuccess && <p role="status">Booking cancelled.</p>}
     </section>
   );
 }

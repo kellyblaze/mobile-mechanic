@@ -403,4 +403,44 @@ describe('createApiAdapter', () => {
     expect(calls[1][0]).toBe('http://api.test/admin/monitoring/reconciliation');
     expect(calls[2][0]).toBe('http://api.test/admin/monitoring/uptime');
   });
+
+  it('cancels an appointment with a reason', async () => {
+    const fetchImpl = mockFetch(200, {
+      data: { id: 'appt-1', customerId: 'cust-1', mechanicId: 'mech-1', startsAt: '2026-09-15T14:00:00.000Z', status: 'cancelled', version: 2, cancelledAt: '2026-09-11T13:00:00.000Z', cancellationReason: 'Change of plans' }
+    });
+    const api = createApiAdapter({ baseUrl: 'http://api.test', actor: { userId: 'customer-demo', role: 'customer' }, fetchImpl });
+
+    const result = await api.cancelAppointment('appt-1', 'Change of plans');
+
+    const call = (fetchImpl as ReturnType<typeof vi.fn>).mock.calls[0];
+    const [url, init] = call as [string, { method: string; headers: Record<string, string>; body: string }];
+    expect(url).toBe('http://api.test/appointments/appt-1/cancel');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body)).toEqual({ reason: 'Change of plans' });
+    expect(result.data.status).toBe('cancelled');
+  });
+
+  it('cancels an appointment with no reason and sends no request body', async () => {
+    const fetchImpl = mockFetch(200, {
+      data: { id: 'appt-1', customerId: 'cust-1', mechanicId: 'mech-1', startsAt: '2026-09-15T14:00:00.000Z', status: 'cancelled', version: 2, cancelledAt: '2026-09-11T13:00:00.000Z', cancellationReason: null }
+    });
+    const api = createApiAdapter({ baseUrl: 'http://api.test', actor: { userId: 'customer-demo', role: 'customer' }, fetchImpl });
+
+    await api.cancelAppointment('appt-1');
+
+    const call = (fetchImpl as ReturnType<typeof vi.fn>).mock.calls[0];
+    const init = call[1] as { headers: Record<string, string>; body: unknown };
+    // Same no-body-means-no-content-type-header pattern as confirmBookingHold above — appointments
+    // cancel takes { reason } optionally, and omitting it must not trip Fastify's strict JSON
+    // parser (FST_ERR_CTP_EMPTY_JSON_BODY).
+    expect(init.headers['content-type']).toBeUndefined();
+    expect(init.body).toBeUndefined();
+  });
+
+  it('surfaces a 409 cancellation cutoff as a typed ApiRequestError', async () => {
+    const fetchImpl = mockFetch(409, { error: { code: 'CANCELLATION_CUTOFF', message: 'Customer and mechanic cancellations require at least two hours notice.', requestId: 'req-1' } });
+    const api = createApiAdapter({ baseUrl: 'http://api.test', actor: { userId: 'customer-demo', role: 'customer' }, fetchImpl });
+
+    await expect(api.cancelAppointment('appt-1')).rejects.toMatchObject({ status: 409, code: 'CANCELLATION_CUTOFF' });
+  });
 });

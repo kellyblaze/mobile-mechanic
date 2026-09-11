@@ -106,6 +106,24 @@ export type BookingHold = {
 // reading createBookingRepository.confirmHold directly.
 export type Appointment = { id: string; customerId: string; mechanicId: string; startsAt: string; endsAt: string; status: string; holdId: string };
 export type BookingConfirmation = { appointment: Appointment; job: Job };
+// POST /appointments/{id}/cancel response — live-verified via curl against
+// packages/database/src/repositories.ts's cancelAppointment, not just read from source: success
+// returns this shape (note it omits endsAt/holdId, unlike Appointment above, because the real SQL
+// RETURNING clause doesn't select them); 403 FORBIDDEN for a non-participant actor; 404 NOT_FOUND
+// once the appointment is no longer in 'confirmed'/'scheduled' status (including re-cancelling an
+// already-cancelled one); 409 CANCELLATION_CUTOFF for a customer/mechanic within two hours of the
+// start time — confirmed live that an admin bypasses the cutoff and still succeeds. `reason` is
+// optional on the request; omitting it live-verified to succeed with cancellationReason: null.
+export type CancelledAppointment = {
+  id: string;
+  customerId: string;
+  mechanicId: string;
+  startsAt: string;
+  status: string;
+  version: number;
+  cancelledAt: string;
+  cancellationReason: string | null;
+};
 
 // CR-014, real proxy published in contract 1.9.0 — every shape below confirmed by reading
 // apps/api/src/server.ts's handlers directly (no response schema in openapi.yaml). `issues.open/
@@ -303,6 +321,14 @@ export function createApiAdapter(options: ApiAdapterOptions) {
     // + job. 409 if the hold is expired, already converted, or otherwise invalid.
     confirmBookingHold: (holdId: string) =>
       request<{ data: BookingConfirmation }>(`/booking-holds/${holdId}/confirm`, { method: 'POST' }),
+    // Customer/mechanic/admin — all three roles may cancel (server-side authorization checks the
+    // actor is a participant, or admin). No body sent when reason is omitted, matching the
+    // confirmBookingHold/refundPayment no-body pattern above (avoids FST_ERR_CTP_EMPTY_JSON_BODY).
+    cancelAppointment: (appointmentId: string, reason?: string) =>
+      request<{ data: CancelledAppointment }>(`/appointments/${appointmentId}/cancel`, {
+        method: 'POST',
+        body: reason ? { reason } : undefined
+      }),
     // CR-011, resolved.
     listMechanics: () => request<{ data: Mechanic[] }>('/mechanics'),
     // Admin-only. CR-010, resolved.
