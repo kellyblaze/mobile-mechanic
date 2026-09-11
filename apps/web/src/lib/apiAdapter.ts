@@ -81,6 +81,28 @@ export type AdminServiceRequest = {
   make: string;
   model: string;
 };
+// POST /uploads / POST /uploads/{id}/complete response — live-verified via curl on 2026-09-11
+// against a real, private Supabase Storage bucket (CR-017: the bucket named in
+// SUPABASE_STORAGE_BUCKET didn't exist yet in this dev environment's Supabase project — created
+// it, then verified the full three-leg flow: initiate -> PUT the real file bytes straight to
+// uploadUrl (no other headers needed beyond content-type; the token is already embedded in the
+// URL's query string) -> complete). uploadUrl/uploadToken/expiresInSeconds are only present on
+// the initiate response, not the complete response — never log or persist them past the upload
+// attempt they're for (they're a short-lived, single-use credential for this exact storageKey).
+export type UploadReference = {
+  id: string;
+  ownerId: string;
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+  storageKey: string;
+  status: string;
+  createdAt?: string;
+  uploadedAt?: string;
+  uploadUrl?: string;
+  uploadToken?: string;
+  expiresInSeconds?: number;
+};
 // POST /admin/memberships response shape — live-verified via curl on 2026-09-10 against Codex's
 // CR-007 implementation.
 export type Membership = { userId: string; businessId: string; role: 'customer' | 'mechanic' | 'admin'; email: string };
@@ -262,7 +284,17 @@ export function createApiAdapter(options: ApiAdapterOptions) {
     getVehicleHistory: (id: string) => request<{ data: Record<string, unknown>[] }>(`/vehicles/${id}/history`),
     listInvoices: () => request<{ data: Invoice[] }>('/invoices'),
     createServiceRequest: (input: { vehicleId: string; category: string; symptoms: string[]; notes?: string; attachmentIds?: string[] }) => request<{ data: Record<string, unknown> }>('/service-requests', { method: 'POST', body: input }),
-    initiateUpload: (input: { fileName: string; contentType: string; sizeBytes: number }) => request<{ data: Record<string, unknown> }>('/uploads', { method: 'POST', body: input }),
+    initiateUpload: (input: { fileName: string; contentType: string; sizeBytes: number }) => request<{ data: UploadReference }>('/uploads', { method: 'POST', body: input }),
+    completeUpload: (id: string) => request<{ data: UploadReference }>(`/uploads/${id}/complete`, { method: 'POST' }),
+    // Goes straight to Supabase Storage, not our own API — a different origin entirely, needing
+    // no dev-actor/bearer header (the token already embedded in uploadUrl is Supabase's own
+    // short-lived, single-use credential for this exact object), so this deliberately doesn't
+    // route through request(). Live-verified via curl: a plain PUT with only a content-type
+    // header and the raw bytes succeeds.
+    uploadFileToSignedUrl: async (uploadUrl: string, file: File): Promise<void> => {
+      const response = await f(uploadUrl, { method: 'PUT', headers: { 'content-type': file.type }, body: file });
+      if (!response.ok) throw new Error(`Upload to storage failed (HTTP ${response.status}).`);
+    },
     listFindings: (id: string) => request<{ data: Record<string, unknown>[] }>(`/jobs/${id}/findings`),
     // openapi.yaml declares `category` as a plain string with no enum, but the live API rejects
     // anything outside this set (confirmed via curl: 422 "Invalid enum value. Expected

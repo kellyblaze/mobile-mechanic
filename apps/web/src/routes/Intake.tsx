@@ -6,12 +6,15 @@ import type { ActorKey } from '../lib/devActors.js';
 import { useInViewOnce } from '../hooks.js';
 import { ErrorPanel } from '../components/shared.js';
 
-// "Tap Your Trouble" guided intake — the product agreement's signature intake flow. There is no
-// POST /service-requests (or /uploads) in the contract yet, so this is a real, fully interactive
-// 4-step wizard (vehicle -> details -> photos -> review) that ends honestly: the final Submit
-// button is genuinely disabled, and photos are previewed client-side (object URLs, revoked on
-// removal/unmount) but never sent anywhere — no fake network call, no fabricated success. See
-// CR-005.
+// "Tap Your Trouble" guided intake — the product agreement's signature intake flow. A real,
+// fully interactive 4-step wizard (vehicle -> details -> photos -> review) backed by the real
+// POST /service-requests (CR-005) and, as of 2026-09-11, real photo uploads (CR-005/CR-017):
+// each selected photo is genuinely uploaded to a private Supabase Storage bucket the moment it's
+// added (initiate -> PUT the real bytes -> complete — see apiAdapter.ts's uploadFileToSignedUrl).
+// What's still missing: POST /service-requests accepts an `attachmentIds` field but the backend
+// silently discards it — uploaded photos aren't yet linked to the request a mechanic can see.
+// Sent anyway (harmless, forward-compatible), and disclosed honestly in the photo step's copy.
+// See docs/change-requests/CR-017.md.
 type IntakeCategory = 'something-wrong' | 'tires' | 'bodywork';
 
 const INTAKE_CATEGORIES: Record<IntakeCategory, { title: string; options: string[] }> = {
@@ -29,7 +32,21 @@ const INTAKE_CATEGORIES: Record<IntakeCategory, { title: string; options: string
   }
 };
 
-type IntakePhoto = { id: string; file: File; previewUrl: string };
+// The real POST /uploads schema only accepts these three image types (plus video/mp4, not
+// relevant to a photo picker) — confirmed live via curl (a text/plain attempt 422'd with this
+// exact enum in the field error). Checked client-side too so a rejected file (e.g. an iPhone's
+// native HEIC) gets an immediate, specific message instead of a failed network round trip.
+const ALLOWED_PHOTO_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+
+type UploadStatus = 'uploading' | 'uploaded' | 'error';
+type IntakePhoto = {
+  id: string;
+  file: File;
+  previewUrl: string;
+  status: UploadStatus;
+  uploadId?: string;
+  errorMessage?: string;
+};
 
 export function Intake({ api, actorKey }: { api: ApiAdapter; actorKey: ActorKey }) {
   const { category } = useParams<{ category: string }>();
@@ -54,13 +71,47 @@ export function Intake({ api, actorKey }: { api: ApiAdapter; actorKey: ActorKey 
     setSymptoms((current) => (current.includes(option) ? current.filter((item) => item !== option) : [...current, option]));
   };
 
+  // Uploads the real file the moment it's added — initiate, PUT the bytes to the signed URL,
+  // then mark it ready. If the photo was already removed from state by the time this settles
+  // (the user clicked the × mid-upload), the functional update below simply finds no matching id
+  // and does nothing — no crash, no orphaned UI update.
+  const uploadPhoto = async (photo: IntakePhoto) => {
+    try {
+      const initiated = await api.initiateUpload({ fileName: photo.file.name, contentType: photo.file.type, sizeBytes: photo.file.size });
+      if (!initiated.data.uploadUrl) throw new Error('Storage did not return an upload URL.');
+      await api.uploadFileToSignedUrl(initiated.data.uploadUrl, photo.file);
+      await api.completeUpload(initiated.data.id);
+      setPhotos((current) => current.map((item) => (item.id === photo.id ? { ...item, status: 'uploaded', uploadId: initiated.data.id } : item)));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Upload failed — try again.';
+      setPhotos((current) => current.map((item) => (item.id === photo.id ? { ...item, status: 'error', errorMessage: message } : item)));
+    }
+  };
+
   const handlePhotoSelect = (event: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? []);
-    setPhotos((current) => [
-      ...current,
-      ...files.map((file) => ({ id: crypto.randomUUID(), file, previewUrl: URL.createObjectURL(file) }))
-    ]);
+    const newPhotos: IntakePhoto[] = files.map((file) => {
+      const isAllowedType = ALLOWED_PHOTO_TYPES.has(file.type);
+      return {
+        id: crypto.randomUUID(),
+        file,
+        previewUrl: URL.createObjectURL(file),
+        status: isAllowedType ? 'uploading' : 'error',
+        errorMessage: isAllowedType ? undefined : `${file.type || 'This file type'} isn't supported — use JPEG, PNG, or WebP.`
+      };
+    });
+    setPhotos((current) => [...current, ...newPhotos]);
     event.target.value = '';
+    for (const photo of newPhotos) {
+      if (photo.status === 'uploading') void uploadPhoto(photo);
+    }
+  };
+
+  const retryPhoto = (id: string) => {
+    const photo = photos.find((item) => item.id === id);
+    if (!photo) return;
+    setPhotos((current) => current.map((item) => (item.id === id ? { ...item, status: 'uploading', errorMessage: undefined } : item)));
+    void uploadPhoto({ ...photo, status: 'uploading' });
   };
 
   const removePhoto = (id: string) => {
@@ -72,7 +123,19 @@ export function Intake({ api, actorKey }: { api: ApiAdapter; actorKey: ActorKey 
   };
 
   const selectedVehicle = vehicles.data?.data.find((vehicle) => vehicle.id === vehicleId);
-  const submitRequest = useMutation({ mutationFn: () => api.createServiceRequest({ vehicleId, category: category ?? 'something-wrong', symptoms, notes: notes.trim() || undefined }), onSuccess: () => setStep(5) });
+  const uploadedPhotoCount = photos.filter((photo) => photo.status === 'uploaded').length;
+  const isAnyPhotoUploading = photos.some((photo) => photo.status === 'uploading');
+  const submitRequest = useMutation({
+    mutationFn: () =>
+      api.createServiceRequest({
+        vehicleId,
+        category: category ?? 'something-wrong',
+        symptoms,
+        notes: notes.trim() || undefined,
+        attachmentIds: photos.filter((photo) => photo.status === 'uploaded' && photo.uploadId).map((photo) => photo.uploadId as string)
+      }),
+    onSuccess: () => setStep(5)
+  });
 
   return (
     <section aria-labelledby="intake-heading">
@@ -150,11 +213,11 @@ export function Intake({ api, actorKey }: { api: ApiAdapter; actorKey: ActorKey 
         <div className="intake-step">
           <h2>Add photos (optional)</h2>
           <p className="pending-note">
-            Photos are previewed here so you can confirm what you&rsquo;re sending, but uploading isn&rsquo;t
-            published in the API contract yet (see docs/change-requests/CR-005.md) — nothing leaves your device.
+            Photos upload to private storage as soon as you add them. They aren&rsquo;t visible to your
+            mechanic within this request yet — see docs/change-requests/CR-017.md.
           </p>
           <label className="intake-photo-input">
-            <input type="file" accept="image/*" multiple onChange={handlePhotoSelect} />
+            <input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={handlePhotoSelect} />
             Choose photos
           </label>
           {photos.length > 0 && (
@@ -162,6 +225,16 @@ export function Intake({ api, actorKey }: { api: ApiAdapter; actorKey: ActorKey 
               {photos.map((photo) => (
                 <li key={photo.id}>
                   <img src={photo.previewUrl} alt="" />
+                  {photo.status === 'uploading' && <span role="status">Uploading&hellip;</span>}
+                  {photo.status === 'uploaded' && <span className="pending-note">Uploaded</span>}
+                  {photo.status === 'error' && (
+                    <>
+                      <span role="alert">{photo.errorMessage}</span>
+                      <button type="button" onClick={() => retryPhoto(photo.id)}>
+                        Retry
+                      </button>
+                    </>
+                  )}
                   <button type="button" onClick={() => removePhoto(photo.id)} aria-label={`Remove photo ${photo.file.name}`}>
                     &times;
                   </button>
@@ -173,8 +246,8 @@ export function Intake({ api, actorKey }: { api: ApiAdapter; actorKey: ActorKey 
             <button type="button" onClick={() => setStep(2)}>
               Back
             </button>
-            <button type="button" onClick={() => setStep(4)}>
-              Next
+            <button type="button" disabled={isAnyPhotoUploading} onClick={() => setStep(4)}>
+              {isAnyPhotoUploading ? 'Uploading photos…' : 'Next'}
             </button>
           </div>
         </div>
@@ -206,7 +279,11 @@ export function Intake({ api, actorKey }: { api: ApiAdapter; actorKey: ActorKey 
             )}
             <li className="service-card">
               <strong>Photos</strong>
-              <span>{photos.length}</span>
+              <span>
+                {photos.length === 0
+                  ? 0
+                  : `${uploadedPhotoCount} of ${photos.length} uploaded${photos.length > uploadedPhotoCount ? ' (the rest failed and won’t be included)' : ''}`}
+              </span>
             </li>
           </ul>
           <button type="button" disabled={submitRequest.isPending || !vehicleId} onClick={() => submitRequest.mutate()}>

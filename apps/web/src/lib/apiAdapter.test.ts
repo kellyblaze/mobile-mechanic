@@ -443,4 +443,57 @@ describe('createApiAdapter', () => {
 
     await expect(api.cancelAppointment('appt-1')).rejects.toMatchObject({ status: 409, code: 'CANCELLATION_CUTOFF' });
   });
+
+  it('initiates an upload and returns the real signed-URL shape', async () => {
+    const fetchImpl = mockFetch(201, {
+      data: { id: 'upload-1', ownerId: 'cust-1', fileName: 'photo.jpg', contentType: 'image/jpeg', sizeBytes: 1000, storageKey: 'cust-1/photo.jpg', status: 'initiated', createdAt: '2026-09-11T16:00:00.000Z', uploadUrl: 'https://storage.test/upload?token=abc', uploadToken: 'abc', expiresInSeconds: 600 }
+    });
+    const api = createApiAdapter({ baseUrl: 'http://api.test', actor: { userId: 'customer-demo', role: 'customer' }, fetchImpl });
+
+    const result = await api.initiateUpload({ fileName: 'photo.jpg', contentType: 'image/jpeg', sizeBytes: 1000 });
+
+    const call = (fetchImpl as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe('http://api.test/uploads');
+    expect(result.data.uploadUrl).toBe('https://storage.test/upload?token=abc');
+  });
+
+  it('completes an upload with no request body', async () => {
+    const fetchImpl = mockFetch(200, {
+      data: { id: 'upload-1', ownerId: 'cust-1', fileName: 'photo.jpg', contentType: 'image/jpeg', sizeBytes: 1000, storageKey: 'cust-1/photo.jpg', status: 'ready', uploadedAt: '2026-09-11T16:00:05.000Z' }
+    });
+    const api = createApiAdapter({ baseUrl: 'http://api.test', actor: { userId: 'customer-demo', role: 'customer' }, fetchImpl });
+
+    const result = await api.completeUpload('upload-1');
+
+    const call = (fetchImpl as ReturnType<typeof vi.fn>).mock.calls[0];
+    const [url, init] = call as [string, { method: string; headers: Record<string, string> }];
+    expect(url).toBe('http://api.test/uploads/upload-1/complete');
+    expect(init.method).toBe('POST');
+    expect(init.headers['content-type']).toBeUndefined();
+    expect(result.data.status).toBe('ready');
+  });
+
+  it('PUTs the file directly to the signed URL, not through baseUrl or dev-actor headers', async () => {
+    const fetchImpl = mockFetch(200, {});
+    const api = createApiAdapter({ baseUrl: 'http://api.test', actor: { userId: 'customer-demo', role: 'customer' }, fetchImpl });
+    const file = new File(['fake bytes'], 'photo.jpg', { type: 'image/jpeg' });
+
+    await api.uploadFileToSignedUrl('https://storage.test/upload?token=abc', file);
+
+    const call = (fetchImpl as ReturnType<typeof vi.fn>).mock.calls[0];
+    const [url, init] = call as [string, { method: string; headers: Record<string, string>; body: unknown }];
+    expect(url).toBe('https://storage.test/upload?token=abc');
+    expect(init.method).toBe('PUT');
+    expect(init.headers['content-type']).toBe('image/jpeg');
+    expect(init.headers['x-dev-user-id']).toBeUndefined();
+    expect(init.body).toBe(file);
+  });
+
+  it('throws when the signed-URL upload fails', async () => {
+    const fetchImpl = mockFetch(403, {});
+    const api = createApiAdapter({ baseUrl: 'http://api.test', actor: { userId: 'customer-demo', role: 'customer' }, fetchImpl });
+    const file = new File(['fake bytes'], 'photo.jpg', { type: 'image/jpeg' });
+
+    await expect(api.uploadFileToSignedUrl('https://storage.test/upload?token=expired', file)).rejects.toThrow('403');
+  });
 });
