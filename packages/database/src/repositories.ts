@@ -9,7 +9,27 @@ export function createVehicleRepository(db: Database) {
 }
 
 export function createServiceRequestRepository(db: Database) {
-  return { async create(customerId: string, input: { vehicleId: string; category: string; symptoms: string[]; notes?: string }) { const rows = await db.query('INSERT INTO service_requests (customer_id, vehicle_id, category, symptoms, delivery_mode) SELECT $1, v.id, $2, $3, CASE WHEN $2 = \'bodywork\' THEN \'shop\' ELSE \'mobile\' END FROM vehicles v WHERE v.id = $4 AND v.customer_id = $1 RETURNING id, customer_id AS "customerId", vehicle_id AS "vehicleId", category, symptoms, status, created_at', [customerId, input.category, JSON.stringify({ selected: input.symptoms, notes: input.notes ?? null }), input.vehicleId]); return rows[0] ?? null; }, async listForAdmin(status?: string) { const rows = await db.query<{ id: string; customerId: string; vehicleId: string; category: string; symptoms: string | Record<string, unknown>; status: string; createdAt: string; deliveryMode: string; customerEmail: string; year: number; make: string; model: string }>('SELECT sr.id, sr.customer_id AS "customerId", sr.vehicle_id AS "vehicleId", sr.category, sr.symptoms, sr.delivery_mode AS "deliveryMode", sr.status, sr.created_at AS "createdAt", u.email AS "customerEmail", v.year, v.make, v.model FROM service_requests sr JOIN users u ON u.id = sr.customer_id JOIN vehicles v ON v.id = sr.vehicle_id WHERE ($1::text IS NULL OR sr.status = $1) ORDER BY sr.created_at DESC', [status ?? null]); return rows.map(row => { const parsed = typeof row.symptoms === 'string' ? JSON.parse(row.symptoms) as { selected?: string[]; notes?: string } : row.symptoms as { selected?: string[]; notes?: string }; return { ...row, symptoms: parsed.selected ?? [], notes: parsed.notes ?? null }; }); } };
+  return {
+    async create(customerId: string, input: { vehicleId: string; category: string; symptoms: string[]; notes?: string; attachmentIds?: string[] }) {
+      return db.withTransaction(async (client) => {
+        const rows = await client.query('INSERT INTO service_requests (customer_id, vehicle_id, category, symptoms, delivery_mode) SELECT $1, v.id, $2, $3, CASE WHEN $2 = \'bodywork\' THEN \'shop\' ELSE \'mobile\' END FROM vehicles v WHERE v.id = $4 AND v.customer_id = $1 RETURNING id, customer_id AS "customerId", vehicle_id AS "vehicleId", category, symptoms, status, created_at AS "createdAt"', [customerId, input.category, JSON.stringify({ selected: input.symptoms, notes: input.notes ?? null }), input.vehicleId]);
+        if (!rows.rows[0]) return null;
+        const attachmentIds = [...new Set(input.attachmentIds ?? [])];
+        if (attachmentIds.length) {
+          const valid = await client.query('SELECT id, file_name AS "fileName", content_type AS "contentType", size_bytes AS "sizeBytes", status FROM upload_references WHERE owner_id = $1 AND status = \'ready\' AND id = ANY($2::uuid[])', [customerId, attachmentIds]);
+          if (valid.rows.length !== attachmentIds.length) throw new Error('INVALID_ATTACHMENTS');
+          await client.query('INSERT INTO service_request_attachments (service_request_id, upload_id) SELECT $1, unnest($2::uuid[])', [rows.rows[0].id, attachmentIds]);
+          rows.rows[0].attachmentIds = attachmentIds;
+          rows.rows[0].attachments = valid.rows;
+        } else { rows.rows[0].attachmentIds = []; rows.rows[0].attachments = []; }
+        return rows.rows[0];
+      });
+    },
+    async listForAdmin(status?: string) {
+      const rows = await db.query('SELECT sr.id, sr.customer_id AS "customerId", sr.vehicle_id AS "vehicleId", sr.category, sr.symptoms, sr.delivery_mode AS "deliveryMode", sr.status, sr.created_at AS "createdAt", u.email AS "customerEmail", v.year, v.make, v.model, COALESCE(json_agg(sra.upload_id) FILTER (WHERE sra.upload_id IS NOT NULL), \'[]\') AS "attachmentIds" FROM service_requests sr JOIN users u ON u.id = sr.customer_id JOIN vehicles v ON v.id = sr.vehicle_id LEFT JOIN service_request_attachments sra ON sra.service_request_id = sr.id WHERE ($1::text IS NULL OR sr.status = $1) GROUP BY sr.id, u.email, v.year, v.make, v.model ORDER BY sr.created_at DESC', [status ?? null]);
+      return rows.map(row => { const parsed = typeof row.symptoms === 'string' ? JSON.parse(row.symptoms) as { selected?: string[]; notes?: string } : row.symptoms as { selected?: string[]; notes?: string }; return { ...row, symptoms: parsed.selected ?? [], notes: parsed.notes ?? null }; });
+    }
+  };
 }
 
 export function createBookingRepository(db: Database) {
