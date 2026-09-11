@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import type { ApiAdapter } from '../lib/apiAdapter.js';
 import type { ActorKey } from '../lib/devActors.js';
 import { useInViewOnce } from '../hooks.js';
-import { ErrorPanel, StatusBadge } from '../components/shared.js';
+import { CancelAppointmentAction, ErrorPanel, StatusBadge } from '../components/shared.js';
 
 // Read-only operational oversight — admin can view every job's status here, but the actions
 // that change a job (transitions, findings, completion) live on the Repair Room page itself,
@@ -45,6 +45,9 @@ export function AdminJobs({ api, actorKey }: { api: ApiAdapter; actorKey: ActorK
                 <StatusBadge status={job.status} />
               </Link>
               <Link to={`/admin/jobs/${job.id}/invoice`}>Issue invoice</Link>
+              {/* appointmentId (CR-015, resolved) is optional — omitted for any job never linked
+                  to an appointment (see the fuller comment in RepairRoom.tsx). */}
+              {job.appointmentId && <CancelAppointmentAction api={api} appointmentId={job.appointmentId} />}
             </li>
           ))}
         </ul>

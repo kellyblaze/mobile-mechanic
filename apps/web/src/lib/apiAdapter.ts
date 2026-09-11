@@ -16,12 +16,16 @@ export type Vehicle = { id: string; customerId?: string; year: number; make: str
 // allowedActions is optional, not required: live-verified against the real Postgres-backed
 // GET /jobs/{id} (persistence:"postgres") on 2026-09-10 — the response omits it entirely for a
 // freshly seeded job, so treating it as always-present would crash real (not just fixture) data.
+// appointmentId (CR-015, resolved) is live-verified present on GET /jobs/{id} as of 2026-09-11 —
+// kept optional anyway since the `jobs.appointment_id` column is nullable in the schema and the
+// no-database fixture fallback path never sets it.
 export type Job = {
   id: string;
   customerId?: string;
   mechanicId?: string;
   vehicleId?: string;
   quoteId?: string;
+  appointmentId?: string;
   status: string;
   version: number;
   allowedActions?: string[];
@@ -48,10 +52,12 @@ export type Invoice = {
 export type Session = { user: { id: string; role: string }; capabilities: string[] };
 // Job summary as returned by GET /mechanic/jobs and GET /admin/jobs — live-verified same shape
 // on both, distinct from the fuller Job type (no allowedActions/quoteId in the list response).
+// appointmentId (CR-015, resolved) live-verified present on both list endpoints as of 2026-09-11.
 export type JobSummary = {
   id: string;
   customerId?: string;
   mechanicId?: string;
+  appointmentId?: string;
   status: string;
   version: number;
   createdAt?: string;

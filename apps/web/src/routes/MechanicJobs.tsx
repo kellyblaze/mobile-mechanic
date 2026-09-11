@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import type { ApiAdapter } from '../lib/apiAdapter.js';
 import type { ActorKey } from '../lib/devActors.js';
 import { useInViewOnce } from '../hooks.js';
-import { ErrorPanel, StatusBadge } from '../components/shared.js';
+import { CancelAppointmentAction, ErrorPanel, StatusBadge } from '../components/shared.js';
 
 export function MechanicJobs({ api, actorKey }: { api: ApiAdapter; actorKey: ActorKey }) {
   const jobs = useQuery({ queryKey: ['mechanic-jobs', actorKey], queryFn: () => api.listMechanicJobs() });
@@ -33,6 +33,9 @@ export function MechanicJobs({ api, actorKey }: { api: ApiAdapter; actorKey: Act
                 </div>
                 <StatusBadge status={job.status} />
               </Link>
+              {/* appointmentId (CR-015, resolved) is optional — omitted for any job never linked
+                  to an appointment (see the fuller comment in RepairRoom.tsx). */}
+              {job.appointmentId && <CancelAppointmentAction api={api} appointmentId={job.appointmentId} />}
             </li>
           ))}
         </ul>

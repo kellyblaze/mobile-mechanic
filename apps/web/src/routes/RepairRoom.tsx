@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ApiAdapter } from '../lib/apiAdapter.js';
 import type { ActorKey } from '../lib/devActors.js';
 import { useInViewOnce } from '../hooks.js';
-import { ErrorPanel, StatusBadge, ValidationErrors } from '../components/shared.js';
+import { CancelAppointmentAction, ErrorPanel, StatusBadge, ValidationErrors } from '../components/shared.js';
 
 export function RepairRoom({ api, actorKey }: { api: ApiAdapter; actorKey: ActorKey }) {
   // Fallback matches the real seeded job id (packages/database/src/seed.ts) — the old "job-1"
@@ -112,6 +112,17 @@ export function RepairRoom({ api, actorKey }: { api: ApiAdapter; actorKey: Actor
         Status: <StatusBadge status={record.status} /> &middot; version {record.version}
       </p>
       <p>Allowed actions: {allowedActions.length ? allowedActions.join(', ') : 'none yet'}</p>
+
+      {/* appointmentId (CR-015, resolved) is optional on Job — omitted for fixture-backed jobs
+          and, in principle, any job never linked to an appointment. No client-side check of
+          whether the appointment is still cancellable (no GET /appointments/{id} exists) — the
+          real response is the source of truth, same as Booking.tsx. */}
+      {record.appointmentId && (
+        <section aria-labelledby="cancel-appointment-heading">
+          <h2 id="cancel-appointment-heading">Appointment</h2>
+          <CancelAppointmentAction api={api} appointmentId={record.appointmentId} withReason />
+        </section>
+      )}
 
       {quote.isPending && quoteId && <p role="status">Loading quote&hellip;</p>}
       {quote.isError && <ErrorPanel error={quote.error} onRetry={() => quote.refetch()} />}

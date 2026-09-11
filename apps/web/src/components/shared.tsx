@@ -1,5 +1,6 @@
-import type { ReactNode } from 'react';
-import { ApiRequestError } from '../lib/apiAdapter.js';
+import { useState, type ReactNode } from 'react';
+import { useMutation } from '@tanstack/react-query';
+import { ApiRequestError, type ApiAdapter } from '../lib/apiAdapter.js';
 
 // Decorative, purely illustrative — aria-hidden. Each icon carries its own themed hover/focus
 // animation defined in styles.css (.entry-door:hover/:focus-visible .icon-*), not a generic
@@ -118,4 +119,69 @@ export function ValidationErrors({ error, isQuoteApproval = false }: { error: un
     );
   }
   return <p role="alert">{error.message}</p>;
+}
+
+// CR-015, resolved: appointmentId is now on Job/JobSummary, so this can live wherever a job is
+// shown, not only right after booking (Booking.tsx keeps its own inline version rather than this,
+// since that flow already has its own dedicated confirm/cancel sequence). No client-side check of
+// whether the appointment is still cancellable — there's no GET /appointments/{id} to check
+// against ahead of time, so this renders whenever an appointmentId exists and lets the real
+// response (200, or a 403/404/409 with its own real message) be the source of truth, same as
+// Booking.tsx. `withReason` shows an optional reason field for a single-job page (Repair Room);
+// list rows (Admin Jobs, My Jobs) omit it to stay compact.
+export function CancelAppointmentAction({
+  api,
+  appointmentId,
+  withReason = false
+}: {
+  api: ApiAdapter;
+  appointmentId: string;
+  withReason?: boolean;
+}) {
+  const [reason, setReason] = useState('');
+  const cancelAppointment = useMutation({
+    mutationFn: () => api.cancelAppointment(appointmentId, reason.trim() || undefined)
+  });
+
+  if (cancelAppointment.isSuccess) {
+    return <p role="status" className="pending-note">Appointment cancelled.</p>;
+  }
+
+  // Only wrap in a <form> when there's an actual field to submit (Repair Room's reason input) —
+  // a bare button doesn't need form semantics, and skipping the wrapper avoids a block-level
+  // element disrupting the compact list-row layout on Admin Jobs / My Jobs.
+  if (!withReason) {
+    return (
+      <>
+        <button type="button" onClick={() => cancelAppointment.mutate()} disabled={cancelAppointment.isPending}>
+          {cancelAppointment.isPending ? 'Cancelling…' : 'Cancel appointment'}
+        </button>
+        {cancelAppointment.isError && <ErrorPanel error={cancelAppointment.error} onRetry={() => cancelAppointment.mutate()} />}
+      </>
+    );
+  }
+
+  return (
+    <form
+      className="intake-step"
+      onSubmit={(event) => {
+        event.preventDefault();
+        cancelAppointment.mutate();
+      }}
+    >
+      <label>
+        Reason (optional)
+        <input
+          value={reason}
+          onChange={(event) => setReason(event.target.value)}
+          placeholder="e.g. schedule conflict"
+          disabled={cancelAppointment.isPending}
+        />
+      </label>
+      <button type="submit" disabled={cancelAppointment.isPending}>
+        {cancelAppointment.isPending ? 'Cancelling…' : 'Cancel appointment'}
+      </button>
+      {cancelAppointment.isError && <ErrorPanel error={cancelAppointment.error} onRetry={() => cancelAppointment.mutate()} />}
+    </form>
+  );
 }
