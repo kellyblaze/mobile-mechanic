@@ -3,7 +3,7 @@ services:
     name: mobile-mechanic-api-staging
     runtime: node
     plan: free
-    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm typecheck
+    buildCommand: pnpm install --frozen-lockfile && pnpm typecheck
     startCommand: pnpm dev
     healthCheckPath: /health
     envVars:
