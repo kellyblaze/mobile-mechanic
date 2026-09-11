@@ -342,4 +342,65 @@ describe('createApiAdapter', () => {
     const init = call[1] as { body: string };
     expect(JSON.parse(init.body)).toEqual({ invoiceId: 'inv-1', amountMinor: 9900, currency: 'USD', idempotencyKey: 'idem-12345678' });
   });
+
+  it('requests the monitoring overview from the correct path', async () => {
+    const fetchImpl = mockFetch(200, { data: { environment: 'development', api: { status: 'healthy', checkedAt: '2026-09-10T00:00:00.000Z' }, issues: { open: 0, critical: 0, last24Hours: 0 }, webhooks: { failed: 0 }, reconciliation: { unpaidSucceededPayments: 0 } } });
+    const api = createApiAdapter({ baseUrl: 'http://api.test', actor: { userId: 'admin-demo', role: 'admin' }, fetchImpl });
+
+    await api.getMonitoringOverview();
+
+    const call = (fetchImpl as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe('http://api.test/admin/monitoring/overview');
+  });
+
+  it('encodes monitoring issue filters as query params', async () => {
+    const fetchImpl = mockFetch(200, { data: [], nextCursor: null });
+    const api = createApiAdapter({ baseUrl: 'http://api.test', actor: { userId: 'admin-demo', role: 'admin' }, fetchImpl });
+
+    await api.listMonitoringIssues({ severity: 'error', status: 'unresolved', limit: 10 });
+
+    const call = (fetchImpl as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe('http://api.test/admin/monitoring/issues?severity=error&status=unresolved&limit=10');
+  });
+
+  it('omits query params entirely when no monitoring issue filters are set', async () => {
+    const fetchImpl = mockFetch(200, { data: [], nextCursor: null });
+    const api = createApiAdapter({ baseUrl: 'http://api.test', actor: { userId: 'admin-demo', role: 'admin' }, fetchImpl });
+
+    await api.listMonitoringIssues({});
+
+    const call = (fetchImpl as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe('http://api.test/admin/monitoring/issues');
+  });
+
+  it('requests a monitoring issue detail by id', async () => {
+    const fetchImpl = mockFetch(200, { data: { id: 'iss-1', title: 'Something broke' } });
+    const api = createApiAdapter({ baseUrl: 'http://api.test', actor: { userId: 'admin-demo', role: 'admin' }, fetchImpl });
+
+    await api.getMonitoringIssue('iss-1');
+
+    const call = (fetchImpl as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe('http://api.test/admin/monitoring/issues/iss-1');
+  });
+
+  it('surfaces a 503 from the monitoring issues endpoint as a typed ApiRequestError', async () => {
+    const fetchImpl = mockFetch(503, { error: { code: 'MONITORING_UNAVAILABLE', message: 'GlitchTip monitoring is not configured.', requestId: 'req-1' } });
+    const api = createApiAdapter({ baseUrl: 'http://api.test', actor: { userId: 'admin-demo', role: 'admin' }, fetchImpl });
+
+    await expect(api.listMonitoringIssues({})).rejects.toMatchObject({ status: 503, code: 'MONITORING_UNAVAILABLE' });
+  });
+
+  it('requests monitoring webhooks, reconciliation, and uptime from their own paths', async () => {
+    const fetchImpl = mockFetch(200, { data: {} });
+    const api = createApiAdapter({ baseUrl: 'http://api.test', actor: { userId: 'admin-demo', role: 'admin' }, fetchImpl });
+
+    await api.getMonitoringWebhooks();
+    await api.getMonitoringReconciliation();
+    await api.getMonitoringUptime();
+
+    const calls = (fetchImpl as ReturnType<typeof vi.fn>).mock.calls;
+    expect(calls[0][0]).toBe('http://api.test/admin/monitoring/webhooks');
+    expect(calls[1][0]).toBe('http://api.test/admin/monitoring/reconciliation');
+    expect(calls[2][0]).toBe('http://api.test/admin/monitoring/uptime');
+  });
 });

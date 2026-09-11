@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import type { ApiAdapter } from '../lib/apiAdapter.js';
 import type { ActorKey } from '../lib/devActors.js';
 import { fetchMonitoringOverview } from '../lib/monitoringMockData.js';
 import { useInViewOnce } from '../hooks.js';
@@ -8,12 +9,16 @@ import { AdminOnlyGate, ErrorPanel, MockModeBanner } from '../components/shared.
 
 const STALE_THRESHOLD_MS = 5 * 60 * 1000;
 
-export function MonitoringOverview({ actorKey }: { actorKey: ActorKey }) {
+export function MonitoringOverview({ api, actorKey }: { api: ApiAdapter; actorKey: ActorKey }) {
   const { ref: headingRef, isInView: headingInView } = useInViewOnce<HTMLHeadingElement>();
-  const [simulateFailure, setSimulateFailure] = useState(false);
+  const [useMockData, setUseMockData] = useState(false);
+  const [simulateError, setSimulateError] = useState(false);
   const overview = useQuery({
-    queryKey: ['monitoring-overview', simulateFailure],
-    queryFn: () => fetchMonitoringOverview(simulateFailure)
+    queryKey: ['monitoring-overview', actorKey, useMockData, simulateError],
+    queryFn: () => {
+      if (simulateError) throw new Error('Simulated server error (test only) — not a real outage.');
+      return useMockData ? fetchMonitoringOverview() : api.getMonitoringOverview().then((response) => response.data);
+    }
   });
 
   return (
@@ -27,15 +32,21 @@ export function MonitoringOverview({ actorKey }: { actorKey: ActorKey }) {
           Monitoring
         </h1>
 
-        <MockModeBanner />
+        {useMockData && <MockModeBanner />}
 
         <p>
           <Link to="/admin/monitoring/issues">Issues</Link>
           {' · '}
           <Link to="/admin/monitoring/operations">Operations</Link>
+        </p>
+        <p>
+          <label>
+            <input type="checkbox" checked={useMockData} onChange={(event) => setUseMockData(event.target.checked)} /> Use mock
+            data (dev only)
+          </label>
           {' · '}
-          <button type="button" onClick={() => setSimulateFailure((current) => !current)}>
-            {simulateFailure ? 'Stop simulating a failure' : 'Simulate a failure (mock mode)'}
+          <button type="button" onClick={() => setSimulateError((current) => !current)}>
+            {simulateError ? 'Stop simulating an error' : 'Simulate a server error (test only)'}
           </button>
         </p>
 
@@ -75,11 +86,15 @@ export function MonitoringOverview({ actorKey }: { actorKey: ActorKey }) {
                 <strong>Unreconciled payments</strong>
                 <span>{overview.data.reconciliation.unpaidSucceededPayments}</span>
               </li>
-              <li className="service-card">
-                <strong>Booking conflicts (24h)</strong>
-                <span>{overview.data.booking.conflicts24Hours}</span>
-              </li>
             </ul>
+            {!useMockData && overview.data.issues.open === 0 && overview.data.issues.critical === 0 && overview.data.issues.last24Hours === 0 && (
+              <p className="pending-note">
+                Issue counts are not wired to GlitchTip yet on the backend &mdash; these are
+                always 0 regardless of real issue volume. See{' '}
+                <Link to="/admin/monitoring/issues">Issues</Link> for real (or 503-unavailable)
+                issue data.
+              </p>
+            )}
           </>
         )}
       </section>

@@ -817,6 +817,11 @@ button:disabled {
   background: var(--color-surface);
   font-size: 0.9rem;
   color: var(--color-text-muted);
+  /* A long unbroken string (the monitoring "unavailable" note's
+     GLITCHTIP_API_URL/TOKEN/ORG_SLUG/PROJECT_SLUG) has no natural wrap point and pushed the
+     whole page into horizontal scroll at 375px — confirmed live via scrollWidth. Normal
+     space-separated text is unaffected. */
+  overflow-wrap: anywhere;
 }
 
 /* Tap Your Trouble intake wizard */

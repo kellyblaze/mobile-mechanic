@@ -106,6 +106,48 @@ export type BookingHold = {
 // reading createBookingRepository.confirmHold directly.
 export type Appointment = { id: string; customerId: string; mechanicId: string; startsAt: string; endsAt: string; status: string; holdId: string };
 export type BookingConfirmation = { appointment: Appointment; job: Job };
+
+// CR-014, real proxy published in contract 1.9.0 — every shape below confirmed by reading
+// apps/api/src/server.ts's handlers directly (no response schema in openapi.yaml). `issues.open/
+// critical/last24Hours` on the overview are currently hardcoded to 0 server-side regardless of
+// real GlitchTip state — not wired to the issues query yet — so the frontend must not present
+// them as live counts. GlitchTip-backed operations (issues list/detail) 503 with
+// MONITORING_UNAVAILABLE whenever GLITCHTIP_API_URL/TOKEN/ORG_SLUG/PROJECT_SLUG aren't all set;
+// the webhook/reconciliation/uptime/overview operations only need the database, not GlitchTip.
+export type MonitoringOverview = {
+  environment: string;
+  release?: string;
+  api: { status: string; checkedAt: string };
+  issues: { open: number; critical: number; last24Hours: number };
+  webhooks: { failed: number; oldestPendingAt?: string };
+  reconciliation: { unpaidSucceededPayments: number; oldestLagMinutes?: number };
+};
+export type MonitoringIssueSummary = {
+  id: string;
+  title: string;
+  status?: string;
+  severity?: string;
+  environment?: string;
+  release?: string;
+  count?: number;
+  lastSeenAt?: string;
+};
+// nextCursor is hardcoded null server-side today regardless of result size — there is no working
+// multi-page pagination yet even though the query parameter is accepted and forwarded. A "load
+// more" affordance driven by nextCursor will therefore correctly never appear until that ships.
+export type MonitoringIssuesPage = { data: MonitoringIssueSummary[]; nextCursor: string | null };
+// The detail route passes through GlitchTip's own (redacted) issue object with no field mapping
+// applied — unlike the list, which normalizes into MonitoringIssueSummary. GlitchTip's exact
+// schema isn't knowable from this codebase alone, so this is deliberately untyped beyond
+// Record<string, unknown> and rendered as generic, escaped key/value pairs — never assumed to
+// match MonitoringIssueSummary's field names, and always treated as untrusted display text.
+export type MonitoringIssueDetail = Record<string, unknown>;
+export type MonitoringWebhookStatus = { failed: number; oldestPendingAt?: string };
+export type MonitoringReconciliation = { unpaidSucceededPayments: number; oldestLagMinutes?: number };
+// Real shape is a single overall API health check, not a per-service array — the mock-mode
+// version's list of named uptime checks doesn't reflect anything the server actually tracks yet.
+export type MonitoringUptime = { api: { status: string; checkedAt: string } };
+export type MonitoringIssueFilters = { severity?: string; status?: string; environment?: string; release?: string; cursor?: string; limit?: number };
 // GET /mechanics response — CR-011, resolved. displayName is literally the mechanic's email
 // today (read createBookingRepository.listMechanics directly) — not a real display name, but the
 // real field the API returns.
@@ -265,7 +307,20 @@ export function createApiAdapter(options: ApiAdapterOptions) {
     listMechanics: () => request<{ data: Mechanic[] }>('/mechanics'),
     // Admin-only. CR-010, resolved.
     createInvoiceForJob: (jobId: string, input: { currency: string; totalMinor: number }) =>
-      request<{ data: Invoice }>(`/admin/jobs/${jobId}/invoices`, { method: 'POST', body: input })
+      request<{ data: Invoice }>(`/admin/jobs/${jobId}/invoices`, { method: 'POST', body: input }),
+    // Admin-only. CR-014, resolved. See the type comments above for exactly what's real vs.
+    // still-hardcoded server-side.
+    getMonitoringOverview: () => request<{ data: MonitoringOverview }>('/admin/monitoring/overview'),
+    listMonitoringIssues: (filters: MonitoringIssueFilters) => {
+      const params = new URLSearchParams();
+      for (const [key, value] of Object.entries(filters)) if (value !== undefined) params.set(key, String(value));
+      const query = params.toString();
+      return request<MonitoringIssuesPage>(`/admin/monitoring/issues${query ? `?${query}` : ''}`);
+    },
+    getMonitoringIssue: (id: string) => request<{ data: MonitoringIssueDetail }>(`/admin/monitoring/issues/${encodeURIComponent(id)}`),
+    getMonitoringWebhooks: () => request<{ data: MonitoringWebhookStatus }>('/admin/monitoring/webhooks'),
+    getMonitoringReconciliation: () => request<{ data: MonitoringReconciliation }>('/admin/monitoring/reconciliation'),
+    getMonitoringUptime: () => request<{ data: MonitoringUptime }>('/admin/monitoring/uptime')
   };
 }
 

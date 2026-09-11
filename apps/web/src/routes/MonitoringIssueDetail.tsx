@@ -1,20 +1,31 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import type { ApiAdapter } from '../lib/apiAdapter.js';
+import { ApiRequestError } from '../lib/apiAdapter.js';
 import type { ActorKey } from '../lib/devActors.js';
 import { fetchMonitoringIssueDetail } from '../lib/monitoringMockData.js';
 import { useInViewOnce } from '../hooks.js';
-import { AdminOnlyGate, ErrorPanel, MockModeBanner, StatusBadge } from '../components/shared.js';
+import { AdminOnlyGate, ErrorPanel, MockModeBanner } from '../components/shared.js';
 
-export function MonitoringIssueDetail({ actorKey }: { actorKey: ActorKey }) {
+export function MonitoringIssueDetail({ api, actorKey }: { api: ApiAdapter; actorKey: ActorKey }) {
   const { id } = useParams();
   const { ref: headingRef, isInView: headingInView } = useInViewOnce<HTMLHeadingElement>();
-  const [simulateFailure, setSimulateFailure] = useState(false);
+  const [useMockData, setUseMockData] = useState(false);
+  const [simulateError, setSimulateError] = useState(false);
   const issue = useQuery({
-    queryKey: ['monitoring-issue', id, simulateFailure],
-    queryFn: () => fetchMonitoringIssueDetail(id as string, simulateFailure),
+    queryKey: ['monitoring-issue', actorKey, id, useMockData, simulateError],
+    queryFn: () => {
+      if (simulateError) throw new Error('Simulated server error (test only) — not a real outage.');
+      return useMockData ? fetchMonitoringIssueDetail(id as string) : api.getMonitoringIssue(id as string).then((response) => response.data);
+    },
     enabled: Boolean(id)
   });
+  const isProviderUnavailable = !useMockData && issue.error instanceof ApiRequestError && issue.error.status === 503;
+  // In real mode a missing issue surfaces as a 404 ApiRequestError (the server's catch block
+  // converts any GlitchTip fetch failure, including a genuine not-found, into 404) — mock mode
+  // instead resolves successfully with a null payload. Both render the same "not found" message.
+  const isNotFound = issue.data === null || (!useMockData && issue.error instanceof ApiRequestError && issue.error.status === 404);
 
   return (
     <AdminOnlyGate actorKey={actorKey}>
@@ -28,61 +39,50 @@ export function MonitoringIssueDetail({ actorKey }: { actorKey: ActorKey }) {
           Issue detail
         </h1>
 
-        <MockModeBanner />
+        {useMockData && <MockModeBanner />}
 
         <p>
-          <button type="button" onClick={() => setSimulateFailure((current) => !current)}>
-            {simulateFailure ? 'Stop simulating a failure' : 'Simulate a failure (mock mode)'}
+          <label>
+            <input type="checkbox" checked={useMockData} onChange={(event) => setUseMockData(event.target.checked)} /> Use mock
+            data (dev only)
+          </label>
+          {' · '}
+          <button type="button" onClick={() => setSimulateError((current) => !current)}>
+            {simulateError ? 'Stop simulating an error' : 'Simulate a server error (test only)'}
           </button>
         </p>
 
         {issue.isPending && <p role="status">Loading issue&hellip;</p>}
-        {issue.isError && <ErrorPanel error={issue.error} onRetry={() => issue.refetch()} />}
-
-        {issue.data === null && (
+        {isProviderUnavailable && (
+          <p className="pending-note">
+            GlitchTip monitoring isn&rsquo;t configured on this server &mdash; issue detail is
+            unavailable until it is. Check &ldquo;Use mock data&rdquo; above to preview the UI.
+          </p>
+        )}
+        {isNotFound && (
           <section aria-labelledby="monitoring-issue-not-found-heading">
             <h2 id="monitoring-issue-not-found-heading" className="visually-hidden">Issue not found</h2>
-            <p>This issue doesn&rsquo;t exist, or the mock fixture doesn&rsquo;t include it.</p>
+            <p>This issue doesn&rsquo;t exist, or isn&rsquo;t available.</p>
           </section>
         )}
+        {issue.isError && !isProviderUnavailable && !isNotFound && <ErrorPanel error={issue.error} onRetry={() => issue.refetch()} />}
 
         {issue.data && (
           <>
-            <p>
-              <StatusBadge status={issue.data.severity} /> <StatusBadge status={issue.data.status} />
+            <h2>Details</h2>
+            <p className="pending-note">
+              This is GlitchTip&rsquo;s own issue data, redacted server-side (customer-identifying
+              fields are replaced with &ldquo;[REDACTED]&rdquo; before this ever reaches the
+              browser) and rendered here as plain, escaped text &mdash; never trusted as markup.
             </p>
             <ul className="service-list">
-              <li className="service-card">
-                <strong>Message</strong>
-                <span>{issue.data.message}</span>
-              </li>
-              <li className="service-card">
-                <strong>Route</strong>
-                <span>{issue.data.route}</span>
-              </li>
-              <li className="service-card">
-                <strong>Environment</strong>
-                <span>
-                  {issue.data.environment}
-                  {issue.data.release ? ` · ${issue.data.release}` : ''}
-                </span>
-              </li>
-              <li className="service-card">
-                <strong>Occurrences</strong>
-                <span>
-                  {issue.data.count} &mdash; first seen {new Date(issue.data.firstSeenAt).toLocaleString()}, last seen{' '}
-                  {new Date(issue.data.lastSeenAt).toLocaleString()}
-                </span>
-              </li>
+              {Object.entries(issue.data).map(([key, value]) => (
+                <li key={key} className="service-card">
+                  <strong>{key}</strong>
+                  <span>{typeof value === 'object' ? JSON.stringify(value) : String(value)}</span>
+                </li>
+              ))}
             </ul>
-
-            <h2>Stack trace summary</h2>
-            <p className="pending-note">
-              Customer-identifying fields are shown redacted here, matching how a real proxy
-              response must already redact them server-side — the frontend never receives the
-              real values (see CR-014).
-            </p>
-            <pre style={{ whiteSpace: 'pre-wrap', overflowX: 'auto' }}>{issue.data.stackSummary.join('\n')}</pre>
           </>
         )}
       </section>

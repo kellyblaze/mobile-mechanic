@@ -210,10 +210,10 @@ export default function App() {
               <Route path="/admin/quotes/new" element={<AdminIssueQuote api={api} actorKey={effectiveActorKey} />} />
               <Route path="/admin/memberships/new" element={<AdminProvisionMembership api={api} />} />
               <Route path="/admin/jobs/:id/invoice" element={<AdminIssueInvoice api={api} />} />
-              <Route path="/admin/monitoring" element={<MonitoringOverview actorKey={effectiveActorKey} />} />
-              <Route path="/admin/monitoring/issues" element={<MonitoringIssues actorKey={effectiveActorKey} />} />
-              <Route path="/admin/monitoring/issues/:id" element={<MonitoringIssueDetail actorKey={effectiveActorKey} />} />
-              <Route path="/admin/monitoring/operations" element={<MonitoringOperations actorKey={effectiveActorKey} />} />
+              <Route path="/admin/monitoring" element={<MonitoringOverview api={api} actorKey={effectiveActorKey} />} />
+              <Route path="/admin/monitoring/issues" element={<MonitoringIssues api={api} actorKey={effectiveActorKey} />} />
+              <Route path="/admin/monitoring/issues/:id" element={<MonitoringIssueDetail api={api} actorKey={effectiveActorKey} />} />
+              <Route path="/admin/monitoring/operations" element={<MonitoringOperations api={api} actorKey={effectiveActorKey} />} />
             </Routes>
           )}
         </div>
