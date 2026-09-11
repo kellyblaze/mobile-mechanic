@@ -20,7 +20,7 @@ Authentication provider: Supabase Auth. `AUTH_MODE=managed` is the intended inte
 
 ## Implemented at checkpoint
 
-Health, managed/development session introspection, catalog read, customer vehicle list/create, authorized Repair Room access, quote acceptance/issuance, job transitions/completion, findings/messages, booking holds and confirmation, appointment cancellation, private signed uploads, invoices, payment intents/refunds, signed Stripe webhooks, admin monitoring proxy routes, admin jobs, and mechanic jobs are implemented to the current contract. Remaining work is rescheduling, production hardening, richer policy coverage, and frontend integration where noted in the integration status.
+Health, managed/development session introspection, catalog read, customer vehicle list/create, authorized Repair Room access, quote acceptance/issuance, job transitions/completion, findings/messages, booking holds and confirmation, appointment cancellation and rescheduling, private signed uploads, invoices, payment intents/refunds, signed Stripe webhooks, admin monitoring proxy routes, admin jobs, and mechanic jobs are implemented to the current contract. Remaining work is production hardening, richer policy coverage, and frontend integration where noted in the integration status.
 
 ## Database architecture summary
 
