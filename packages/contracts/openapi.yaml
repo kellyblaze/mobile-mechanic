@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Mobile Mechanic API
-  version: 1.9.0
+  version: 2.0.0
   description: Contract v1.0.0. Development adapters are explicitly marked in responses.
 servers:
   - url: http://127.0.0.1:3000/api/v1

@@ -3,7 +3,7 @@
 Repository: E:\Projects\Mobile Mechanic
 Branch: feature/issue-2-backend-completion
 Backend handoff commit: 90e07833f043a7f7167672b0d64039d48cb04a51
-Contract version: 1.9.0
+Contract version: 2.0.0
 Canonical contract: packages/contracts/openapi.yaml
 Generated client: packages/contracts/generated/client.ts
 
@@ -53,7 +53,7 @@ Use the generated client through one frontend adapter.
 - Quotes: GET /quotes/{id}, POST /quotes/{id}/accept, POST /admin/service-requests/{id}/quotes
 - Account provisioning: POST /admin/memberships (admin only; links an existing Supabase Auth user by email)
 - Admin quote discovery: GET /admin/service-requests?status=submitted
-- Repair Room: GET/POST /jobs/{id}/findings, GET/POST /jobs/{id}/messages, GET /jobs/{id}
+- Repair Room: GET/POST /jobs/{id}/findings, GET/POST /jobs/{id}/messages, GET /jobs/{id} (includes appointmentId when linked)
 - Jobs: GET /admin/jobs, GET /mechanic/jobs, POST /jobs/{id}/transitions, POST /jobs/{id}/completion-report
 - Scheduling: GET /availability, POST /booking-holds, POST /booking-holds/{id}/confirm (returns appointment and scheduled job)
 - Cancellation: POST /appointments/{id}/cancel; customers and mechanics require at least two hours notice, admins may cancel future appointments; refunds remain admin-controlled
