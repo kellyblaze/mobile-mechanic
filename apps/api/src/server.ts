@@ -13,6 +13,7 @@ import { createBookingRepository, createInvoiceRepository, createQuoteJobReposit
 
 const app = Fastify({ logger: process.env.NODE_ENV !== 'test' });
 const database = process.env.MOCK_MODE === 'true' ? null : createDatabase();
+if (process.env.NODE_ENV === 'production' && (!database || process.env.AUTH_MODE !== 'managed' || process.env.MOCK_MODE === 'true')) throw new Error('Production requires PostgreSQL, managed authentication, and MOCK_MODE=false.');
 const vehicleRepository = database ? createVehicleRepository(database) : null;
 const serviceRequestRepository = database ? createServiceRequestRepository(database) : null;
 const bookingRepository = database ? createBookingRepository(database) : null;
