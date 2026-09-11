@@ -1,6 +1,6 @@
 # Architecture
 
-Contract version: `1.0.0`. This is a TypeScript modular monolith: Fastify API, domain package, PostgreSQL migration package, and a future worker. React belongs in `apps/web` and is intentionally only a placeholder at this checkpoint.
+Contract version: `2.0.0`. This is a TypeScript modular monolith: Fastify API, domain package, PostgreSQL migration package, and a future worker. React belongs in `apps/web` and is owned by Claude.
 
 ## Ownership
 
@@ -20,7 +20,7 @@ Authentication provider: Supabase Auth. `AUTH_MODE=managed` is the intended inte
 
 ## Implemented at checkpoint
 
-Health, managed/development session introspection, catalog read, customer vehicle list/create, authorized Repair Room access, quote acceptance/issuance, job transitions/completion, findings/messages, booking holds, invoices, payment intents/refunds, signed Stripe webhooks, admin jobs, and mechanic jobs are implemented to the current contract. Remaining work is production hardening, richer policy coverage, and frontend integration.
+Health, managed/development session introspection, catalog read, customer vehicle list/create, authorized Repair Room access, quote acceptance/issuance, job transitions/completion, findings/messages, booking holds and confirmation, appointment cancellation, private signed uploads, invoices, payment intents/refunds, signed Stripe webhooks, admin monitoring proxy routes, admin jobs, and mechanic jobs are implemented to the current contract. Remaining work is rescheduling, production hardening, richer policy coverage, and frontend integration where noted in the integration status.
 
 ## Database architecture summary
 
