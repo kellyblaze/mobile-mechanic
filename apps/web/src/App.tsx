@@ -201,7 +201,7 @@ export default function App() {
               <Route path="/sign-in" element={<SignIn auth={auth} />} />
               <Route path="/vehicles" element={<Vehicles api={api} actorKey={effectiveActorKey} />} />
               <Route path="/vehicles/:id" element={<VehiclePassport api={api} actorKey={effectiveActorKey} />} />
-              <Route path="/book" element={<Booking api={api} />} />
+              <Route path="/book" element={<Booking api={api} actorKey={effectiveActorKey} />} />
               <Route path="/intake/:category" element={<Intake api={api} actorKey={effectiveActorKey} />} />
               <Route path="/jobs/:id" element={<RepairRoom api={api} actorKey={effectiveActorKey} />} />
               <Route path="/invoices/:id/pay" element={<PayInvoice api={api} actorKey={effectiveActorKey} />} />

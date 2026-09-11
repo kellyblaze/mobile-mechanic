@@ -989,6 +989,32 @@ button:disabled {
   border-radius: 50%;
 }
 
+/* Found in a later cleanup pass: without these, the Retry button inherited the small circular
+   "x" remove-button styling above (absolute, 22px, top-right corner) and collided with the real
+   remove button sitting in the exact same spot. */
+.intake-photo-error {
+  display: block;
+  margin-top: var(--space-1);
+  color: var(--color-danger);
+  font-size: 0.75rem;
+  line-height: 1.3;
+}
+
+/* .intake-photo-list .intake-photo-retry (two classes), not .intake-photo-retry alone, so this
+   actually outranks .intake-photo-list button's (one class + one element) specificity above for
+   every property they share — a plain single-class rule would lose the cascade and silently do
+   nothing, which is exactly what happened on the first pass at this fix. */
+.intake-photo-list .intake-photo-retry {
+  position: static;
+  width: auto;
+  height: auto;
+  min-height: auto;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  line-height: normal;
+}
+
 @media (max-width: 480px) {
   .app-header {
     flex-direction: column;

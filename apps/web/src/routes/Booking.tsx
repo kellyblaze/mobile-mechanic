@@ -1,17 +1,21 @@
 import { useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import type { ApiAdapter } from '../lib/apiAdapter.js';
+import type { ActorKey } from '../lib/devActors.js';
 import { useInViewOnce } from '../hooks.js';
 import { ErrorPanel } from '../components/shared.js';
 
 const HOLD_DURATION_MS = 60 * 60 * 1000;
 const HOLD_EXPIRES_IN_MS = 30 * 60 * 1000;
 
-export function Booking({ api }: { api: ApiAdapter }) {
+export function Booking({ api, actorKey }: { api: ApiAdapter; actorKey: ActorKey }) {
   const { ref: headingRef, isInView: headingInView } = useInViewOnce<HTMLHeadingElement>();
   // CR-013, resolved: GET /mechanics now scopes to the caller's own business and returns DISTINCT
   // rows — re-verified live (was returning the same mechanic four times before the fix).
-  const mechanics = useQuery({ queryKey: ['mechanics'], queryFn: () => api.listMechanics() });
+  // Found in a later cleanup pass: the query key omitted actorKey even though the response is
+  // business-scoped per caller (bookingRepository.listMechanics(a.id) server-side) — the exact
+  // same stale-cross-actor-cache defect already found and fixed in the Monitoring screens.
+  const mechanics = useQuery({ queryKey: ['mechanics', actorKey], queryFn: () => api.listMechanics() });
 
   const [mechanicId, setMechanicId] = useState('');
   const [startLocal, setStartLocal] = useState('');

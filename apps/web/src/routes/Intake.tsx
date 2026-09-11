@@ -37,6 +37,10 @@ const INTAKE_CATEGORIES: Record<IntakeCategory, { title: string; options: string
 // exact enum in the field error). Checked client-side too so a rejected file (e.g. an iPhone's
 // native HEIC) gets an immediate, specific message instead of a failed network round trip.
 const ALLOWED_PHOTO_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+// Matches uploadSchema's real max (apps/api/src/server.ts: sizeBytes.max(25000000)) — found
+// missing in a later cleanup pass: the type check existed but size didn't, so an oversized photo
+// only found out via a real 422 after a full upload attempt instead of immediately.
+const MAX_PHOTO_SIZE_BYTES = 25_000_000;
 
 type UploadStatus = 'uploading' | 'uploaded' | 'error';
 type IntakePhoto = {
@@ -92,12 +96,18 @@ export function Intake({ api, actorKey }: { api: ApiAdapter; actorKey: ActorKey 
     const files = Array.from(event.target.files ?? []);
     const newPhotos: IntakePhoto[] = files.map((file) => {
       const isAllowedType = ALLOWED_PHOTO_TYPES.has(file.type);
+      const isAllowedSize = file.size <= MAX_PHOTO_SIZE_BYTES;
+      const rejectionReason = !isAllowedType
+        ? `${file.type || 'This file type'} isn't supported — use JPEG, PNG, or WebP.`
+        : !isAllowedSize
+          ? `That photo is too large (${(file.size / 1_000_000).toFixed(1)} MB) — the limit is 25 MB.`
+          : undefined;
       return {
         id: crypto.randomUUID(),
         file,
         previewUrl: URL.createObjectURL(file),
-        status: isAllowedType ? 'uploading' : 'error',
-        errorMessage: isAllowedType ? undefined : `${file.type || 'This file type'} isn't supported — use JPEG, PNG, or WebP.`
+        status: rejectionReason ? 'error' : 'uploading',
+        errorMessage: rejectionReason
       };
     });
     setPhotos((current) => [...current, ...newPhotos]);
@@ -227,12 +237,12 @@ export function Intake({ api, actorKey }: { api: ApiAdapter; actorKey: ActorKey 
                   {photo.status === 'uploading' && <span role="status">Uploading&hellip;</span>}
                   {photo.status === 'uploaded' && <span className="pending-note">Uploaded</span>}
                   {photo.status === 'error' && (
-                    <>
-                      <span role="alert">{photo.errorMessage}</span>
-                      <button type="button" onClick={() => retryPhoto(photo.id)}>
+                    <span role="alert" className="intake-photo-error">
+                      {photo.errorMessage}{' '}
+                      <button type="button" className="intake-photo-retry" onClick={() => retryPhoto(photo.id)}>
                         Retry
                       </button>
-                    </>
+                    </span>
                   )}
                   <button type="button" onClick={() => removePhoto(photo.id)} aria-label={`Remove photo ${photo.file.name}`}>
                     &times;
